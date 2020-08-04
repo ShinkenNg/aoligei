@@ -29,6 +29,9 @@ import SearchInput from '../search-input';
 import PowerText from '../power-text';
 import {useIntl} from '../intl-context';
 
+import PowerRichText from '../power-richtext';
+import PowerUpload from '../power-upload';
+
 import { useDeepCompareEffect } from '../power-list/component/util';
 import { BuildFormColumns, PowerListTypes } from '../columns';
 
@@ -61,6 +64,8 @@ export interface BuildFormProps<T> {
   onChange?: (values: Store) => void;
   // submit成功callback
   onSuccess?: () => void;
+  // postData 用于提交前处理数据
+  postData?: (params: Store) => Store;
   // spinning，设置整个表单外层的spin加载
   spinning?: boolean;
   // size, 表单尺寸，等同ant design form
@@ -84,6 +89,7 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
     onChange,
     onSubmit,
     onSuccess,
+    postData,
     loadingText,
     itemColSpan,
     request,
@@ -164,54 +170,30 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
     const extraProps = item.buildFormItemExtraProps || {};
     if (!_.isEmpty(item.valueEnum)) {
       // eslint-disable-next-line no-shadow
-      const options = _.map(_.entries(item.valueEnum), (item) => {
-        const [value, label] = item;
-        // 由于select需要精确类型匹配，如果是数字，需要精确
-        return (
-          <Select.Option value={numberRegex.test(value) ? _.toNumber(value) : value} key={value}>
-            {label.text}
-          </Select.Option>
-        );
-      });
-      return (
-        <Select {...extraProps} onChange={onFormValueChange}>
-          {options}
-        </Select>
-      );
-    }
-    // 单选框，直接渲染
-    if (!_.isEmpty(item.radioEnum)) {
-      const options = _.map(_.entries(item.radioEnum), (radio) => {
-        const [value, label] = radio;
-        // 由于select需要精确类型匹配，如果是数字，需要精确
-        return (
-          <Radio value={numberRegex.test(value) ? _.toNumber(value) : value} key={value}>
-            {label}
-          </Radio>
-        );
-      });
-      return (
-        <Radio.Group {...extraProps} onChange={onFormValueChange}>
-          {options}
-        </Radio.Group>
-      );
-    }
+      const options = _.map(_.entries(item.valueEnum), (valueItem) => {
+        const [value, label] = valueItem;
+        let ItemComp:any = Select.Option;
+        // 判断组件类型
+        if (item.buildFormValueType === 'radio') {
+          ItemComp = Radio;
+        }
 
-    // 下拉选择框
-    if (!_.isEmpty(item.selectEnum)) {
-      const options = _.map(_.entries(item.selectEnum), (select) => {
-        const [value, label] = select;
-        // 转化为数字
+        // 如果是数字，需要精确
         return (
-          <Select.Option
-            value={numberRegex.test(value) ? _.toNumber(value) : value}
-            key={`${item.title}-${value}`}
-          >
-            {label}
-          </Select.Option>
+          <ItemComp value={numberRegex.test(value) ? _.toNumber(value) : value} key={value}>
+            {label.text}
+          </ItemComp>
         );
       });
-      return <Select {...extraProps}>{options}</Select>;
+      let GroupComp:any = Select;
+      if (item.buildFormValueType === 'radio') {
+        GroupComp = Radio.Group;
+      }
+      return (
+        <GroupComp {...extraProps} onChange={onFormValueChange}>
+          {options}
+        </GroupComp>
+      );
     }
 
     // 取两种类型之一
@@ -243,6 +225,10 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
         return <PowerText {...extraProps} />;
       case 'password':
         return <Input.Password {...extraProps} onChange={onFormValueChange} />;
+      case 'richText':
+        return <PowerRichText {...extraProps} />;
+      case 'upload':
+        return <PowerUpload {...extraProps} />;
       default:
         // @ts-ignore
         return <Input autoComplete="off" {...extraProps} onChange={onFormValueChange} />;
@@ -255,7 +241,11 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
     try {
       // 设置提交loading
       setSubmitting(true);
-      const values = await formHook.validateFields();
+      let values = await formHook.validateFields();
+
+      if (_.isFunction(postData)) {
+        values = postData(values);
+      }
 
       const text = loadingText || intl.getMessage('tableForm.submitting', '提交中...');
       const hide = message.loading(text);

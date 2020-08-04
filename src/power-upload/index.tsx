@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { ReactNode, useState } from 'react';
 import { Upload, message } from 'antd';
 import { RcFile, UploadChangeParam, UploadFile, UploadProps } from 'antd/es/upload/interface';
 import _ from 'lodash';
+import moment from 'moment';
+import { useIntl } from '../intl-context';
+import { useDeepCompareEffect } from '../power-list/component/util';
 
 // 覆盖原来的部分实现
 // Omit beforeUpload实现数量限制
@@ -11,17 +14,38 @@ export interface PowerUploadProps<T = any>
   onChange?: (info: UploadChangeParam) => void;
   // 限制最大上传数
   maxCount?: number;
+  value?: any;
+  children?: ReactNode,
 }
 
-export function PowerUpload<T = any>(props: PowerUploadProps) {
+export function Index<T = any>(props: PowerUploadProps) {
   const [uploadFileList, setUploadFileList] = useState(new Array<UploadFile>());
+  const intl = useIntl();
+
+  const {children, ...rest} = props;
+
+  useDeepCompareEffect(() => {
+    if (_.isString(props.value)) {
+      const newList = new Array<UploadFile>();
+      const fileItem:UploadFile =  {
+        url: props.value,
+        size: 0,
+        type: '',
+        uid: _.toString(moment().unix()),
+        name: props.value,
+        status: 'done',
+      };
+      newList.push(fileItem);
+      setUploadFileList(newList);
+    }
+  }, [props.value]);
 
   const beforeUpload = (file: RcFile, FileList: RcFile[]) => {
     if (_.isNumber(props.maxCount) && props.maxCount > 0) {
       if (_.toInteger(_.get(uploadFileList, 'length')) < _.toInteger(props.maxCount)) {
         return true;
       }
-      // message.error(intl.formatMessage({ id: 'tooltip.upload_over' }));
+      message.error(intl.getMessage('tooltip.upload_over', '超出上传数量限制'));
       return false;
     }
     if (_.isFunction(props.beforeUpload)) {
@@ -46,9 +70,17 @@ export function PowerUpload<T = any>(props: PowerUploadProps) {
     }
   };
 
+  // 定义是否展示上传按钮
+  let showChildren = true;
+  if (_.isNumber(props.maxCount)) {
+    showChildren = props.maxCount > uploadFileList.length;
+  }
+
   return (
-    <Upload {...props} beforeUpload={beforeUpload} fileList={uploadFileList} onChange={onChange} />
+    <Upload {...rest} beforeUpload={beforeUpload} fileList={uploadFileList} onChange={onChange}>
+      {showChildren && children}
+    </Upload>
   );
 }
 
-export default PowerUpload;
+export default Index;

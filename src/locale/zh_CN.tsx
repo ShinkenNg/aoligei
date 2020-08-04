@@ -11,6 +11,9 @@ export default {
     submitSuccess: '提交成功',
     submitting: '提交中...',
   },
+  upload: {
+    countLimit: '超出上传数量限制!'
+  },
   alert: {
     clear: '清空',
     selected: '已选择',
