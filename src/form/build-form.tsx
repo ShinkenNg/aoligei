@@ -20,17 +20,18 @@ import { FormLayout } from 'antd/es/form/Form';
 import { SizeType } from 'antd/es/config-provider/SizeContext';
 // eslint-disable-next-line import/no-extraneous-dependencies
 import { Store } from 'rc-field-form/es/interface';
-
+import { FormProps as RcFormProps } from 'rc-field-form/lib/Form';
 import _ from 'lodash';
-import { numberRegex } from '../utils/regex';
 import PowerDatePicker from '../power-date-picker';
 // import {StatusType} from "@/components/PowerList/component/status";
 import SearchInput from '../search-input';
 import PowerText from '../power-text';
-import {useIntl} from '../intl-context';
+import { useIntl } from '../intl-context';
 
 import PowerRichText from '../power-richtext';
 import PowerUpload from '../power-upload';
+import PowerSKU from '../power-sku';
+import PowerInputNumber from '../power-input-number';
 
 import { useDeepCompareEffect } from '../power-list/component/util';
 import { BuildFormColumns, PowerListTypes } from '../columns';
@@ -52,7 +53,7 @@ export interface BuildFormAction<T> {
   onClick: (form: FormInstance) => void;
 }
 
-export interface BuildFormProps<T> {
+export interface BuildFormProps<T> extends Omit<RcFormProps, 'form'> {
   columns: BuildFormColumns<T>[];
   // 表单属性，直接取用ant design form的Props
   form?: FormProps;
@@ -93,6 +94,7 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
     loadingText,
     itemColSpan,
     request,
+    ...rest
   } = props;
   const {
     layout: formLayout,
@@ -121,24 +123,25 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
   const selfType: PowerListTypes = 'form';
 
   // 保存表单值, 也可触发rerender
-  const [formValues, setFormValues] = useState({});
+  // const [formValues, setFormValues] = useState({});
 
   const [submitting, setSubmitting] = useState(false);
 
   useDeepCompareEffect(() => {
     // 初始值不同时，需要更新进form
-    setFormValues(initialValues);
+    // setFormValues(initialValues);
     formHook.resetFields();
   }, [initialValues]);
 
   // 接管表单的字段变化，将此方法绑定在所有子Item的change中，实现受控
-  const onFormValueChange = () => {
-    const values: Store = formHook.getFieldsValue();
-    setFormValues(values);
-    if (_.isFunction(onChange)) {
-      onChange(formValues);
-    }
-  };
+  // const onFormValueChange = () => {
+  //   const values: Store = formHook.getFieldsValue();
+  //   setFormValues(values);
+  //   console.log(values);
+  //   if (_.isFunction(onChange)) {
+  //     onChange(formValues);
+  //   }
+  // };
 
   // 暴露的外部onChange回调
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -172,7 +175,7 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
       // eslint-disable-next-line no-shadow
       const options = _.map(_.entries(item.valueEnum), (valueItem) => {
         const [value, label] = valueItem;
-        let ItemComp:any = Select.Option;
+        let ItemComp: any = Select.Option;
         // 判断组件类型
         if (item.buildFormValueType === 'radio') {
           ItemComp = Radio;
@@ -180,17 +183,17 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
 
         // 如果是数字，需要精确
         return (
-          <ItemComp value={numberRegex.test(value) ? _.toNumber(value) : value} key={value}>
+          <ItemComp value={value} key={value}>
             {label.text}
           </ItemComp>
         );
       });
-      let GroupComp:any = Select;
+      let GroupComp: any = Select;
       if (item.buildFormValueType === 'radio') {
         GroupComp = Radio.Group;
       }
       return (
-        <GroupComp {...extraProps} onChange={onFormValueChange}>
+        <GroupComp {...extraProps}>
           {options}
         </GroupComp>
       );
@@ -200,38 +203,42 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
     const valueType = item.buildFormValueType || item.valueType;
     switch (valueType) {
       case 'money':
-        return <InputNumber {...extraProps} onChange={onFormValueChange} />;
+        return <InputNumber {...extraProps} />;
+      case 'digit':
+        return <PowerInputNumber {...extraProps} />;
       case 'time':
-        return <TimePicker {...extraProps} onChange={onFormValueChange} />;
+        return <TimePicker {...extraProps} />;
       case 'date':
-        return <PowerDatePicker {...extraProps} onChange={onFormValueChange} />;
+        return <PowerDatePicker {...extraProps} />;
       case 'dateTime':
-        return <PowerDatePicker {...extraProps} showTime onChange={onFormValueChange} />;
+        return <PowerDatePicker {...extraProps} showTime />;
       case 'dateTimeRange':
         return (
           <DatePicker.RangePicker
             {...extraProps}
             placeholder={[
               intl.formatMessage('tableForm.selectPlaceholder', { title: item.title }, '请选择'),
-              intl.formatMessage('tableForm.selectPlaceholder',  { title: item.title }, '请选择'),
+              intl.formatMessage('tableForm.selectPlaceholder', { title: item.title }, '请选择'),
             ]}
           />
         );
       case 'textarea':
-        return <Input.TextArea {...extraProps} onChange={onFormValueChange} />;
+        return <Input.TextArea {...extraProps} />;
       case 'searchInput':
         return <SearchInput {...extraProps} />;
       case 'powerText':
         return <PowerText {...extraProps} />;
       case 'password':
-        return <Input.Password {...extraProps} onChange={onFormValueChange} />;
+        return <Input.Password {...extraProps} />;
       case 'richText':
         return <PowerRichText {...extraProps} />;
       case 'upload':
         return <PowerUpload {...extraProps} />;
+      case 'sku':
+        return <PowerSKU {...extraProps} />;
       default:
         // @ts-ignore
-        return <Input autoComplete="off" {...extraProps} onChange={onFormValueChange} />;
+        return <Input autoComplete="off" {...extraProps} />;
     }
   };
 
@@ -316,6 +323,7 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
   return (
     <div>
       <Form
+        {...rest}
         layout={layout}
         labelCol={labelCol}
         wrapperCol={wrapperCol}
@@ -348,7 +356,7 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
 
             const rules = item.rules || [];
             // 在设置了必填样式时，帮忙填充一条必填规则
-            if (item.required) {
+            if (item.required && _.findIndex(rules, {required: true}) < 0) {
               const requiredItem = {
                 required: true,
                 // message: `${item.title} ${intl.formatMessage({ id: 'tooltip.required' })}`,
@@ -387,6 +395,8 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
               dataIndex = _.split(_.toString(item.dataIndex), '.');
             }
 
+            const dependencies = _.get(item, 'dependencies');
+
             return (
               <Col
                 {...itemCol}
@@ -398,6 +408,11 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
                   required={item.required}
                   name={dataIndex}
                   label={item.title}
+                  dependencies={_.isString(dependencies) ? _.split(dependencies, '.') : undefined}
+                  trigger={item.trigger}
+                  shouldUpdate={item.shouldUpdate}
+                  validateTrigger={item.validateTrigger}
+                  extra={item.extra}
                 >
                   {renderFormItem(item)}
                 </Form.Item>

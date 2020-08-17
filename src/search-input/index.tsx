@@ -1,10 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Select, Spin } from 'antd';
+import { message, Select, Spin } from 'antd';
 import _ from 'lodash';
 
 interface SearchInputProps {
-  // method 调用方法
-  method?: string;
+  request?: (data: any) => Promise<any>;
   // 调用接口的额外参数 kv
   extraData?: {
     [key: string]: any;
@@ -35,7 +34,7 @@ interface SearchInputProps {
 
 function SearchInput(props: SearchInputProps) {
   const {
-    method,
+    request,
     searchKey,
     labelKey,
     valueKey,
@@ -54,6 +53,10 @@ function SearchInput(props: SearchInputProps) {
   const [loading, setLoading] = useState(false);
 
   const requestSearch = useCallback(async () => {
+    if (!_.isFunction(request)) {
+      message.error('Not Request');
+      return;
+    }
     // 默认搜索name
     const key = searchKey || 'name';
     const searchData = { ...extraData } || {};
@@ -65,18 +68,9 @@ function SearchInput(props: SearchInputProps) {
     if (_.isNumber(pageSize) && pageSize > 0) {
       _.set(searchData, 'pageSize', _.toInteger(pageSize));
     }
-    const formData = {
-      method: method || 'get',
-    };
-    // 除了get传params，其它都传data
-    if (formData.method === 'get') {
-      _.set(formData, 'params', searchData);
-    } else {
-      _.set(formData, 'data', searchData);
-    }
     setLoading(true);
-    // const { data } = await request(url || '', formData);
-    const data: React.SetStateAction<never[]> = [];
+    const { data } = await request(searchData);
+    // const data: React.SetStateAction<never[]> = [];
     setLoading(false);
     setOptionData(data);
   }, [keyword]);

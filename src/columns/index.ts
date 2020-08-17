@@ -43,8 +43,8 @@ export type ValueEnumMap = Map<ReactText,
 export type PowerListTypes = 'form' | 'list' | 'table' | 'cardList' | undefined;
 
 export interface PowerColumnType<T = unknown>
-  extends Omit<ColumnType<T>, 'render' | 'children' | 'title'>,
-    Partial<Omit<FormItemProps, 'children'>> {
+  extends Omit<ColumnType<T>, 'render' | 'children' | 'title' | 'dependencies'>,
+    Partial<Omit<FormItemProps, 'children' | 'dependencies'>> {
   index?: number;
   title?: ReactNode | ((config: PowerColumnType<T>, type: PowerListTypes) => ReactNode);
   /**
@@ -136,6 +136,8 @@ export interface PowerColumnType<T = unknown>
    * form 的排序
    */
   order?: number;
+
+  dependencies?: string;
 }
 
 export interface PowerColumnGroupType<RecordType> extends PowerColumnType<RecordType> {
@@ -149,7 +151,7 @@ export type SelectEnumObj = {
   [value: string]: any;
 };
 
-export interface BuildFormColumns<T> extends Omit<PowerColumns<T>, ''> {
+export interface BuildFormColumns<T> extends Omit<PowerColumns<T>, 'extra'> {
   // 控制item是否显示，但仍然提交
   buildFormHideItem?: ((form: FormInstance) => boolean) | boolean;
   // 控制item是否渲染，和上面那个配合，两者区别，如同创建 更新表单的区别
@@ -182,6 +184,7 @@ export interface BuildFormColumns<T> extends Omit<PowerColumns<T>, ''> {
     | 'password'
     | 'richText'
     | 'upload'
+    | 'sku'
     | 'powerText';
 
   // selectEnum?: SelectEnumObj;
@@ -210,4 +213,5 @@ export interface BuildFormColumns<T> extends Omit<PowerColumns<T>, ''> {
   rules?: Rule[];
   // 是否必填
   required?: boolean;
+  extra?: string | ReactNode;
 }

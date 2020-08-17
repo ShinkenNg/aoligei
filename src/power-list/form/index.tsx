@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FormInstance, FormItemProps, FormProps } from 'antd/es/form';
 import { Input, Form, Row, Col, TimePicker, InputNumber, DatePicker, Select } from 'antd';
+import _ from 'lodash';
 import moment, { Moment } from 'moment';
 import RcResizeObserver from 'rc-resize-observer';
 // @ts-ignore
@@ -375,6 +376,7 @@ export const proFormItemRender: (props: {
     formItemProps,
     index,
     formItemName,
+    dependencies,
     ...rest
   } = item;
   const key = genColumnKey(rest.key, dataIndex, index);
@@ -395,9 +397,15 @@ export const proFormItemRender: (props: {
   if (formItemName) {
     name = formItemName;
   }
+
+  let deps = undefined;
+  if (dependencies) {
+    deps = _.split(dependencies, '.');
+  }
+
   return (
     <Col {...colConfig} key={key}>
-      <Form.Item labelAlign="right" label={getTitle()} name={name} {...(isForm && rest)}>
+      <Form.Item labelAlign="right" dependencies={deps} label={getTitle()} name={name} {...(isForm && rest)}>
         {dom}
       </Form.Item>
     </Col>

@@ -107,4 +107,8 @@ const PowerSpace: React.FC<PowerSpaceProps> = (props) => {
   );
 };
 
+export {
+  PowerSpace,
+}
+
 export default PowerSpace;

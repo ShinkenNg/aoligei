@@ -12,7 +12,8 @@ export default {
     submitting: '提交中...',
   },
   upload: {
-    countLimit: '超出上传数量限制!'
+    countLimit: '超出上传数量限制!',
+    preview: '预览',
   },
   alert: {
     clear: '清空',
