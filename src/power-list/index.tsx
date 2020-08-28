@@ -1,4 +1,3 @@
-import { PowerColumns } from "../columns";
 import PowerList, { ActionType, PowerListProps, ColumnsState } from './table';
 import IndexColumn from './component/index-column';
 import { RequestData } from './use-fetch-data';
@@ -27,7 +26,6 @@ export type {
   IntlType,
   ColumnsState,
   PowerColumnsValueType,
-  PowerColumns,
   ActionType,
   RequestData,
 };

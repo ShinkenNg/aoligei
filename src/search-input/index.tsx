@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { message, Select, Spin } from 'antd';
 import _ from 'lodash';
 
-interface SearchInputProps {
+export interface SearchInputProps {
   request?: (data: any) => Promise<any>;
   // 调用接口的额外参数 kv
   extraData?: {
@@ -32,7 +32,7 @@ interface SearchInputProps {
   exclude?: any | any[];
 }
 
-function SearchInput(props: SearchInputProps) {
+export function SearchInput(props: SearchInputProps) {
   const {
     request,
     searchKey,

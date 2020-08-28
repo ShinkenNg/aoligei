@@ -11,31 +11,16 @@ export type ValueEnumObj = {
     | {
     text: ReactNode;
     status: StatusType;
+    hideInForm: boolean;
   }
     | ReactNode;
 };
-
-// 单选框的常量
-export type RadioEnumObj = {
-  [value: string]:
-    | {
-    text: ReactNode,
-    status: StatusType,
-  }
-    | ReactNode;
-};
-
-export type RadioEnumMap = Map<ReactText,
-  | {
-  text: ReactNode;
-  status: StatusType;
-}
-  | ReactNode>;
 
 export type ValueEnumMap = Map<ReactText,
   | {
   text: ReactNode;
   status: StatusType;
+  hideInForm: boolean;
 }
   | ReactNode>;
 
@@ -43,8 +28,8 @@ export type ValueEnumMap = Map<ReactText,
 export type PowerListTypes = 'form' | 'list' | 'table' | 'cardList' | undefined;
 
 export interface PowerColumnType<T = unknown>
-  extends Omit<ColumnType<T>, 'render' | 'children' | 'title' | 'dependencies'>,
-    Partial<Omit<FormItemProps, 'children' | 'dependencies'>> {
+  extends Omit<ColumnType<T>, 'render' | 'children' | 'title'>,
+    Partial<Omit<FormItemProps, 'children'>> {
   index?: number;
   title?: ReactNode | ((config: PowerColumnType<T>, type: PowerListTypes) => ReactNode);
   /**
@@ -136,8 +121,6 @@ export interface PowerColumnType<T = unknown>
    * form 的排序
    */
   order?: number;
-
-  dependencies?: string;
 }
 
 export interface PowerColumnGroupType<RecordType> extends PowerColumnType<RecordType> {

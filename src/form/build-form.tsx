@@ -22,6 +22,7 @@ import { SizeType } from 'antd/es/config-provider/SizeContext';
 import { Store } from 'rc-field-form/es/interface';
 import { FormProps as RcFormProps } from 'rc-field-form/lib/Form';
 import _ from 'lodash';
+import { numberRegex } from '../utils/regex';
 import PowerDatePicker from '../power-date-picker';
 // import {StatusType} from "@/components/PowerList/component/status";
 import SearchInput from '../search-input';
@@ -123,25 +124,24 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
   const selfType: PowerListTypes = 'form';
 
   // 保存表单值, 也可触发rerender
-  // const [formValues, setFormValues] = useState({});
+  const [formValues, setFormValues] = useState({});
 
   const [submitting, setSubmitting] = useState(false);
 
   useDeepCompareEffect(() => {
     // 初始值不同时，需要更新进form
-    // setFormValues(initialValues);
+    setFormValues(initialValues);
     formHook.resetFields();
   }, [initialValues]);
 
-  // 接管表单的字段变化，将此方法绑定在所有子Item的change中，实现受控
-  // const onFormValueChange = () => {
-  //   const values: Store = formHook.getFieldsValue();
-  //   setFormValues(values);
-  //   console.log(values);
-  //   if (_.isFunction(onChange)) {
-  //     onChange(formValues);
-  //   }
-  // };
+  // 接管表单的字段变化
+  const onFormValueChange = () => {
+    const values: Store = formHook.getFieldsValue();
+    setFormValues(values);
+    if (_.isFunction(onChange)) {
+      onChange(formValues);
+    }
+  };
 
   // 暴露的外部onChange回调
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -171,9 +171,21 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
     }
     // 取extra props
     const extraProps = item.buildFormItemExtraProps || {};
+
+    // 借助表单设定的shouldUpdate，实现表单更新时处理该字段，有助于后期剥离Antd Form
+    if (item.shouldUpdate) {
+      extraProps.onChange = () => {
+        onFormValueChange();
+      }
+    }
     if (!_.isEmpty(item.valueEnum)) {
       // eslint-disable-next-line no-shadow
-      const options = _.map(_.entries(item.valueEnum), (valueItem) => {
+      const options = _.map(
+        _.filter(_.entries(item.valueEnum), (n) => {
+          const [,label] = n;
+          return !_.get(label, 'hideInForm');
+        }), 
+        (valueItem) => {
         const [value, label] = valueItem;
         let ItemComp: any = Select.Option;
         // 判断组件类型
@@ -183,7 +195,7 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
 
         // 如果是数字，需要精确
         return (
-          <ItemComp value={value} key={value}>
+          <ItemComp value={numberRegex.test(value) ? _.toNumber(value) : value} key={value}>
             {label.text}
           </ItemComp>
         );
@@ -286,8 +298,6 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
       }
       setSubmitting(false);
       hide();
-    } catch (error) {
-      console.error(error);
     } finally {
       setSubmitting(false);
     }
@@ -340,7 +350,7 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
               }
             }
             if (_.isBoolean(item.buildFormIsRenderItem)) {
-              if (item.buildFormIsRenderItem) {
+              if (!item.buildFormIsRenderItem) {
                 return false;
               }
             }
@@ -408,7 +418,7 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
                   required={item.required}
                   name={dataIndex}
                   label={item.title}
-                  dependencies={_.isString(dependencies) ? _.split(dependencies, '.') : undefined}
+                  dependencies={dependencies}
                   trigger={item.trigger}
                   shouldUpdate={item.shouldUpdate}
                   validateTrigger={item.validateTrigger}

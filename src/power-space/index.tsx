@@ -16,7 +16,8 @@ export interface PowerSpaceProps {
   // No `stretch` since many components do not support that.
   align?: 'start' | 'end' | 'center' | 'baseline';
   divider?: boolean;
-  accessible?: boolean | { accessible: boolean; key: string };
+  accessible?: boolean | { accessible?: boolean; key?: string; component?: string };
+  children?: React.ReactNode;
 }
 
 const spaceSize = {
@@ -25,7 +26,7 @@ const spaceSize = {
   large: 24,
 };
 
-const PowerSpace: React.FC<PowerSpaceProps> = (props) => {
+export function PowerSpace(props: PowerSpaceProps) {
   const { getPrefixCls, space, direction: directionConfig }: ConfigConsumerProps = React.useContext(
     ConfigContext,
   );
@@ -47,7 +48,8 @@ const PowerSpace: React.FC<PowerSpaceProps> = (props) => {
     items = items.filter((n) => {
       const key = _.get(accessible, 'key', 'accessible');
       const value = _.get(n, `props.${key}`);
-      if (value === undefined) {
+      const component = _.get(accessible, 'component', 'Access');
+      if (_.get(n, 'type.name') !== component) {
         // 未定义的可能未被授权组件包裹
         return true;
       }
@@ -91,9 +93,9 @@ const PowerSpace: React.FC<PowerSpaceProps> = (props) => {
               i === end || divider
                 ? {}
                 : {
-                    [direction === 'vertical' ? 'marginBottom' : marginDirection]:
-                      typeof size === 'string' ? spaceSize[size] : size,
-                  }
+                  [direction === 'vertical' ? 'marginBottom' : marginDirection]:
+                    typeof size === 'string' ? spaceSize[size] : size,
+                }
             }
           >
             {child}
@@ -106,9 +108,5 @@ const PowerSpace: React.FC<PowerSpaceProps> = (props) => {
     </div>
   );
 };
-
-export {
-  PowerSpace,
-}
 
 export default PowerSpace;

@@ -6,3 +6,5 @@ export * from './power-upload';
 export * from './power-richtext';
 export * from './power-input-number';
 export * from './power-space';
+export * from './search-input';
+export * from './power-file-viewer';

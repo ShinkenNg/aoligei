@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FormInstance, FormItemProps, FormProps } from 'antd/es/form';
 import { Input, Form, Row, Col, TimePicker, InputNumber, DatePicker, Select } from 'antd';
-import _ from 'lodash';
+// import _ from 'lodash';
 import moment, { Moment } from 'moment';
 import RcResizeObserver from 'rc-resize-observer';
 // @ts-ignore
@@ -20,9 +20,9 @@ import {
 import { useIntl, IntlType } from '../../intl-context';
 import Container from '../container';
 import { PowerColumnsValueTypeFunction } from '../default-render';
-import { PowerColumnsValueType, PowerColumns } from '../index';
+import { PowerColumnsValueType } from '../index';
 import FormOption, { FormOptionProps } from './form-option';
-import { PowerListTypes } from '../../columns';
+import { PowerListTypes, PowerColumns } from '../../columns';
 import './index.less';
 
 /**
@@ -398,10 +398,7 @@ export const proFormItemRender: (props: {
     name = formItemName;
   }
 
-  let deps = undefined;
-  if (dependencies) {
-    deps = _.split(dependencies, '.');
-  }
+  const deps = dependencies;
 
   return (
     <Col {...colConfig} key={key}>

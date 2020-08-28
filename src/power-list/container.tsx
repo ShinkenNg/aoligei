@@ -4,7 +4,8 @@ import { useState, useRef } from 'react';
 import { ColumnType } from 'antd/es/table';
 import useMergeValue from 'use-merge-value';
 
-import { RequestData, PowerColumns } from './index';
+import { RequestData } from './index';
+import { PowerColumns } from '../columns';
 import { UseFetchDataAction } from './use-fetch-data';
 import { DensitySize } from './component/tool-bar/density-icon';
 import { ColumnsState } from './table';
