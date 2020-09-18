@@ -10,6 +10,7 @@ import { ColumnsType, TablePaginationConfig, TableProps } from 'antd/es/table';
 import { FormProps } from 'antd/es/form';
 import { TableCurrentDataSource, SorterResult } from 'antd/lib/table/interface';
 import { ConfigConsumer, ConfigConsumerProps } from 'antd/lib/config-provider';
+import _ from 'lodash';
 
 // eslint-disable-next-line import/no-extraneous-dependencies
 import { noteOnce } from 'rc-util/lib/warning';
@@ -544,13 +545,33 @@ const PowerList = <T extends {}, U extends object>(
 
   useEffect(() => {
     fullScreen.current = () => {
-      if (!rootRef.current || !document.fullscreenEnabled) {
+      // @ts-ignore
+      if (!rootRef.current || !(document.fullscreenEnabled || document.webkitFullscreenEnabled || document.mozFullScreenEnabled)) {
         return;
       }
-      if (document.fullscreenElement) {
-        document.exitFullscreen();
-      } else {
-        rootRef.current.requestFullscreen();
+      // @ts-ignore
+      if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement) {
+        if (_.isFunction(document.exitFullscreen)) {
+          document.exitFullscreen();
+          // @ts-ignore
+        } else if (_.isFunction(document.webkitExitFullscreen)) {
+          // @ts-ignore
+          document.webkitExitFullscreen();
+          // @ts-ignore
+        } else if (_.isFunction(document.mozCancelFullScreen)) {
+          // @ts-ignore
+          document.mozCancelFullScreen();
+        }
+      } else if (_.isFunction(rootRef.current.requestFullscreen)) {
+          rootRef.current.requestFullscreen();
+          // @ts-ignore
+        } else if(_.isFunction(rootRef.current.webkitRequestFullScreen)) {
+          // @ts-ignore
+          rootRef.current.webkitRequestFullScreen();
+          // @ts-ignore
+        } else if(_.isFunction(rootRef.current.mozRequestFullScreen)) {
+        // @ts-ignore
+        rootRef.current.mozRequestFullScreen();
       }
     };
   }, [rootRef.current]);

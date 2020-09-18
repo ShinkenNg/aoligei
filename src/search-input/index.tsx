@@ -19,10 +19,10 @@ export interface SearchInputProps {
   // 渲染选择项
   customOptionRender?: (data: any) => JSX.Element | null;
   // 过滤选择项
-  customOptionFilter?: (data: any) => boolean;
+  customOptionFilter?: (data: any) => any;
 
   // onChange，暴露受控
-  onChange?: (value: any) => void;
+  onChange?: (value: any, record?: any) => void;
   // value，暴露受控用
   value?: any;
   // id暴露受控
@@ -30,6 +30,8 @@ export interface SearchInputProps {
   // placeholder
   placeholder?: string;
   exclude?: any | any[];
+  onDeselect?: (value?: any) => void;
+  mode?: 'multiple' | 'tags';
 }
 
 export function SearchInput(props: SearchInputProps) {
@@ -128,10 +130,19 @@ export function SearchInput(props: SearchInputProps) {
       notFoundContent={loading ? <Spin size="small" /> : null}
       loading={loading}
       onSearch={handleSearch}
-      onChange={props.onChange}
+      onChange={(value) => {
+        if (_.isFunction(props.onChange)){
+          const match = {};
+          _.set(match, props.valueKey || 'id', value);
+          const record = _.find(optionData, match);
+          props.onChange(value, record);
+        }
+      }}
       value={props.value}
       id={props.id}
+      onDeselect={props.onDeselect}
       placeholder={placeholder}
+      mode={props.mode}
     >
       {options}
     </Select>

@@ -16,7 +16,7 @@ export interface PowerSpaceProps {
   // No `stretch` since many components do not support that.
   align?: 'start' | 'end' | 'center' | 'baseline';
   divider?: boolean;
-  accessible?: boolean | { accessible?: boolean; key?: string; component?: string };
+  accessible?: boolean | { accessible?: boolean; key?: string; };
   children?: React.ReactNode;
 }
 
@@ -48,9 +48,8 @@ export function PowerSpace(props: PowerSpaceProps) {
     items = items.filter((n) => {
       const key = _.get(accessible, 'key', 'accessible');
       const value = _.get(n, `props.${key}`);
-      const component = _.get(accessible, 'component', 'Access');
-      if (_.get(n, 'type.name') !== component) {
-        // 未定义的可能未被授权组件包裹
+      if (_.isUndefined(value)) {
+        // 未定义的则不处理
         return true;
       }
       return value;

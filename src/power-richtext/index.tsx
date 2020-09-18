@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types';
 import React from 'react';
 import _ from 'lodash';
+/* eslint-disable */
 import PowerLink from './../power-link';
 import PowerModal from './../power-modal';
 
@@ -97,18 +98,16 @@ export class PowerRichText extends React.Component<any> {
    * 1. 父组件初始化传递的 value。父组件 value 的获取是异步的，因此会触发一次 componentWillReceiveProps，这种情况不需要将更新再通知父组件
    * 2. 用户对编辑器进行编辑
    */
-  // componentWillReceiveProps(nextProps: any) {
-  //   console.log(nextProps);
-  //   if ('value' in nextProps && this.props.value !== nextProps.value) {
-  //     this.isContentChangedByWillReceiveProps = true;
-  //     this.content = nextProps.value;
-  //     if (this.ueditor) {
-  //       this.ueditor.ready(() => {
-  //         this.ueditor.setContent(nextProps.value);
-  //       });
-  //     }
-  //   }
-  // }
+  componentWillReceiveProps(nextProps: any) {
+    console.log(nextProps);
+    if ('value' in nextProps && this.props.value !== nextProps.value) {
+      if (this.ueditor) {
+        this.ueditor.ready(() => {
+          this.ueditor.setContent(nextProps.value);
+        });
+      }
+    }
+  }
 
   componentWillUnmount() {
     if (this.ueditor) {
@@ -318,9 +317,8 @@ export class PowerRichText extends React.Component<any> {
       plugins.forEach(plugin => {
         if (typeof plugin === 'string') {
           return this.registerInternalPlugin(plugin);
-        } else {
+        } 
           return this.registerPlugin(plugin);
-        }
       });
     }
 

@@ -49,20 +49,18 @@ export function PowerUpload<T = any>(props: PowerUploadProps) {
     if (_.isFunction(postValueToList)) {
       const list = postValueToList(value);
       setUploadFileList(list);
-    } else {
-      if (_.isString(value)) {
-        const newList = new Array<UploadFile>();
-        const fileItem: UploadFile = {
-          url: value,
-          size: 0,
-          type: '',
-          uid: _.toString(moment().unix()),
-          name: value,
-          status: 'done',
-        };
-        newList.push(fileItem);
-        setUploadFileList(newList);
-      }
+    } else if (_.isString(value)) {
+      const newList = new Array<UploadFile>();
+      const fileItem: UploadFile = {
+        url: value,
+        size: 0,
+        type: '',
+        uid: _.toString(moment().unix()),
+        name: value,
+        status: 'done',
+      };
+      newList.push(fileItem);
+      setUploadFileList(newList);
     }
   }, []);
 

@@ -13,6 +13,7 @@ import {
   Row,
   Col,
   Radio,
+  Rate,
 } from 'antd';
 
 import { ColProps } from 'antd/es/grid/col';
@@ -25,14 +26,14 @@ import _ from 'lodash';
 import { numberRegex } from '../utils/regex';
 import PowerDatePicker from '../power-date-picker';
 // import {StatusType} from "@/components/PowerList/component/status";
-import SearchInput from '../search-input';
+import {SearchInput} from '../search-input';
 import PowerText from '../power-text';
 import { useIntl } from '../intl-context';
 
 import PowerRichText from '../power-richtext';
-import PowerUpload from '../power-upload';
+import {PowerUpload} from '../power-upload';
 import PowerSKU from '../power-sku';
-import PowerInputNumber from '../power-input-number';
+import {PowerInputNumber} from '../power-input-number';
 
 import { useDeepCompareEffect } from '../power-list/component/util';
 import { BuildFormColumns, PowerListTypes } from '../columns';
@@ -81,6 +82,8 @@ export interface BuildFormProps<T> extends Omit<RcFormProps, 'form'> {
   itemColSpan?: number | typeof defaultColConfig;
   // 请求数据的方法
   request: (data: Store) => Promise<any>;
+  // 获取form实例
+  getInstance?: (form: FormInstance<any>) => void;
 }
 
 export function BuildForm<T>(props: BuildFormProps<T>) {
@@ -134,6 +137,12 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
     formHook.resetFields();
   }, [initialValues]);
 
+  useDeepCompareEffect(() => {
+    if (_.isFunction(props.getInstance)) {
+      props.getInstance(formHook);
+    }
+  }, [formHook]);
+
   // 接管表单的字段变化
   const onFormValueChange = () => {
     const values: Store = formHook.getFieldsValue();
@@ -146,7 +155,13 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
   // 暴露的外部onChange回调
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const onCallbackChange = (dataIndex?: string | number | (string | number)[], value?: any) => {
-    // TODO: 暂无特殊处理
+    const result = {};
+    // @ts-ignore
+    _.set(result, dataIndex, value);
+
+    formHook.setFieldsValue(result);
+    formHook.resetFields();
+    onFormValueChange();
   };
 
   // 渲染表单项
@@ -248,6 +263,8 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
         return <PowerUpload {...extraProps} />;
       case 'sku':
         return <PowerSKU {...extraProps} />;
+      case 'rate':
+        return <Rate {...extraProps}/>;
       default:
         // @ts-ignore
         return <Input autoComplete="off" {...extraProps} />;

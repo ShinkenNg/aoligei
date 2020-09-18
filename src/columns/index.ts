@@ -168,6 +168,7 @@ export interface BuildFormColumns<T> extends Omit<PowerColumns<T>, 'extra'> {
     | 'richText'
     | 'upload'
     | 'sku'
+    | 'rate'
     | 'powerText';
 
   // selectEnum?: SelectEnumObj;

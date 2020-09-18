@@ -221,7 +221,7 @@ export function SKU<T>(props: SKUProps<T>) {
           })
         }
         {
-          dataSource && _.get(skuList, 'length') < _.get(dataSource, 'length') && (
+          dataSource && _.get(skuList, 'length', 0) < _.get(dataSource, 'length') && (
             <Button type="primary" size="small" onClick={addCategory}>添加商品规格</Button>
           )
         }

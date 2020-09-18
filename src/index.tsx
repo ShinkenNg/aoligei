@@ -7,4 +7,4 @@ export * from './power-richtext';
 export * from './power-input-number';
 export * from './power-space';
 export * from './search-input';
-export * from './power-file-viewer';
+// export * from './power-file-viewer';
