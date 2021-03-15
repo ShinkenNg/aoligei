@@ -8,9 +8,11 @@ import useMergeValue from 'use-merge-value';
 import { stringify } from 'use-json-comparison';
 import { ColumnsType, TablePaginationConfig, TableProps } from 'antd/es/table';
 import { FormProps } from 'antd/es/form';
-import { TableCurrentDataSource, SorterResult } from 'antd/lib/table/interface';
+import { TableCurrentDataSource, SorterResult, ColumnType } from 'antd/lib/table/interface';
 import { ConfigConsumer, ConfigConsumerProps } from 'antd/lib/config-provider';
 import _ from 'lodash';
+// @ts-ignore
+import { Resizable } from 'react-resizable';
 
 // eslint-disable-next-line import/no-extraneous-dependencies
 import { noteOnce } from 'rc-util/lib/warning';
@@ -34,6 +36,7 @@ import get, {
 import defaultRenderText from './default-render';
 import { DensitySize } from './component/tool-bar/density-icon';
 import ErrorBoundary from './component/errorboundary';
+import {getParams, addUrlParams} from '../utils/utils';
 
 type TableRowSelection = TableProps<any>['rowSelection'];
 
@@ -201,6 +204,33 @@ export interface PowerListProps<T, U extends { [key: string]: any }>
   getPageMeta?: (response: RequestData<any>) => RequestPageMeta;
 }
 
+const ResizableTitle = (props: any) => {
+  const { onResize, width, ...restProps } = props;
+
+  if (!width) {
+    return <th {...restProps} />
+  }
+
+  return (
+    <Resizable
+      width={width}
+      height={0}
+      handle={
+        <span
+          className="alg-resizable-handle"
+          onClick={e => {
+            e.stopPropagation();
+          }}
+        />
+      }
+      onResize={onResize}
+      draggableOpts={{ enableUserSelectHack: false }}
+    >
+      <th {...restProps} />
+    </Resizable>
+  );
+}
+
 const mergePagination = <T extends any[], U>(
   pagination: TablePaginationConfig | boolean | undefined = {},
   action: UseFetchDataAction<RequestData<T>>,
@@ -226,7 +256,7 @@ const mergePagination = <T extends any[], U>(
     current,
     pageSize,
     onChange: (page: number, newPageSize?: number) => {
-      const purePathName = (window.location.pathname || '').replace(/\//g, '');
+      // const purePathName = (window.location.pathname || '').replace(/\//g, '');
 
       // pageSize 改变之后就没必要切换页码
       if (newPageSize !== pageSize && current !== page) {
@@ -242,9 +272,10 @@ const mergePagination = <T extends any[], U>(
 
       const pageInfo = {
         pageSize: newPageSize,
-        current: page,
+        page,
       };
-      sessionStorage.setItem(purePathName, JSON.stringify(pageInfo));
+      addUrlParams(pageInfo);
+      // sessionStorage.setItem(purePathName, JSON.stringify(pageInfo));
 
       const { onChange } = pagination as TablePaginationConfig;
       if (onChange) {
@@ -460,6 +491,7 @@ const PowerList = <T extends {}, U extends object>(
     postData,
     pagination: propsPagination,
     actionRef,
+    components,
     columns: propsColumns = [],
     toolBarRender = () => [],
     onLoad,
@@ -492,6 +524,9 @@ const PowerList = <T extends {}, U extends object>(
   const [proFilter, setProFilter] = useState<{
     [key: string]: React.ReactText[];
   }>({});
+
+  const [stateColumns, setStateColumns] = useState<ColumnType<any>[]>([]);
+
   const [proSort, setProSort] = useState<{
     [key: string]: 'ascend' | 'descend';
   }>({});
@@ -675,21 +710,18 @@ const PowerList = <T extends {}, U extends object>(
       actionRef.current = userAction;
     }
 
-    const purePathName = (window.location.pathname || '').replace(/\//g, '');
+    // const purePathName = (window.location.pathname || '').replace(/\//g, '');
 
-    const sessionPageInfo = sessionStorage.getItem(purePathName);
-    if (sessionPageInfo) {
-      try {
-        const cachePageInfo = JSON.parse(sessionPageInfo);
-        if (cachePageInfo.current > 1) {
-          // 当页码需要恢复
-          action.setPageInfo({
-            page: cachePageInfo.current,
-            pageSize: cachePageInfo.pageSize,
-          });
-        }
-      } catch (e) {
-        console.error(e);
+    const paramInfo = getParams();
+    const page = _.toInteger(_.get(paramInfo, 'page'));
+    const pageSize = _.toInteger(_.get(paramInfo, 'pageSize'));
+    if (paramInfo) {
+      if (page > 0) {
+        // 当页码需要恢复
+        action.setPageInfo({
+          page,
+          pageSize,
+        });
       }
     }
   }, []);
@@ -758,6 +790,20 @@ const PowerList = <T extends {}, U extends object>(
     }
   }, [propsPagination]);
 
+  useDeepCompareEffect(() => {
+    const newColumns = counter.columns.filter((item) => {
+      // 删掉不应该显示的
+      const { key, dataIndex } = item;
+      const columnKey = genColumnKey(key, dataIndex);
+      if (!columnKey) {
+        return true;
+      }
+      const config = counter.columnsMap[columnKey];
+      return !(config && config.show === false);
+    });
+    setStateColumns(newColumns);
+  }, [counter.columns]);
+
   // 映射 selectedRowKeys 与 selectedRow
   useEffect(() => {
     if (action.loading !== false || propsRowSelection === false) {
@@ -815,6 +861,16 @@ const PowerList = <T extends {}, U extends object>(
       </Card>
     );
   }
+
+  // @ts-ignore
+  const handleResize = index => (e, { size }) => {
+    const nextColumns = [...stateColumns];
+    nextColumns[index] = {
+      ...nextColumns[index],
+      width: size.width,
+    };
+    setStateColumns(nextColumns);
+  };
 
   const className = classNames(defaultClassName, propsClassName);
 
@@ -905,17 +961,22 @@ const PowerList = <T extends {}, U extends object>(
               scroll={{ x: 'max-content' }}
               rowSelection={!propsRowSelection ? undefined : rowSelection}
               className={tableClassName}
+              components={{
+                ...components,
+                header: {
+                  cell: ResizableTitle,
+                },
+              }}
               style={tableStyle}
-              columns={counter.columns.filter((item) => {
-                // 删掉不应该显示的
-                const { key, dataIndex } = item;
-                const columnKey = genColumnKey(key, dataIndex);
-                if (!columnKey) {
-                  return true;
-                }
-                const config = counter.columnsMap[columnKey];
-                return !(config && config.show === false);
-              })}
+              // @ts-ignore
+              columns={stateColumns.map((col, index) => ({
+                ...col,
+                onHeaderCell: column => ({
+                  // @ts-ignore
+                  width: column.width,
+                  onResize: handleResize(index),
+                }),
+              }))}
               loading={action.loading || props.loading}
               dataSource={dataSource}
               pagination={pagination}

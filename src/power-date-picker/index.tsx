@@ -4,7 +4,7 @@ import _ from 'lodash';
 import moment, { Moment } from 'moment';
 import { DatePickerProps } from 'antd/lib/date-picker/index';
 
-function PowerDatePicker(props: DatePickerProps) {
+export function PowerDatePicker(props: DatePickerProps) {
   const { value, onChange, ...other } = props;
   const time = value ? moment(value) : undefined;
   const triggerChange = (_value: Moment | null, dateStr: string) => {
@@ -15,7 +15,7 @@ function PowerDatePicker(props: DatePickerProps) {
     }
   };
 
-  return <DatePicker defaultValue={time} onChange={triggerChange} {...other} />;
+  return <DatePicker value={time} onChange={triggerChange} {...other} />;
 }
 
 export default PowerDatePicker;

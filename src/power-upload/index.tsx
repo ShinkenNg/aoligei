@@ -62,7 +62,7 @@ export function PowerUpload<T = any>(props: PowerUploadProps) {
       newList.push(fileItem);
       setUploadFileList(newList);
     }
-  }, []);
+  }, [value]);
 
   const beforeUpload = (file: RcFile, FileList: RcFile[]) => {
     if (_.isNumber(maxCount) && maxCount > 0) {

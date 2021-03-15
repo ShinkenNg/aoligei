@@ -1,22 +1,26 @@
 export default {
-    title: 'PowerDesign',
-    extraBabelPlugins: [
-      [
-        'import',
-        {
-          libraryName: 'antd',
-          libraryDirectory: 'es',
-          style: 'css',
-        },
-      ],
-    ],
-    navs: [
-      null,
+  title: 'PowerDesign',
+  extraBabelPlugins: [
+    [
+      'import',
       {
+        libraryName: 'antd',
+        libraryDirectory: 'es',
+        style: 'css',
       },
     ],
-    hash: true,
-    dynamicImport: {
-      loading: '@ant-design/pro-skeleton',
-    },
-  };
+  ],
+  navs: [
+    null,
+    {},
+  ],
+  hash: true,
+  dynamicImport: {
+    loading: '@ant-design/pro-skeleton',
+  },
+  plugins: [
+    new webpack.ProvidePlugin({
+      'window.Quill': 'quill',
+    })
+  ]
+};

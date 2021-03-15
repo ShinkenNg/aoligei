@@ -187,8 +187,9 @@ export interface BuildFormColumns<T> extends Omit<PowerColumns<T>, 'extra'> {
       value?: any;
       onChange?: (value: any) => void;
       onSelect?: (value: any) => void;
-      type: PowerListTypes;
+      // type: PowerListTypes;
       defaultRender: (newItem: BuildFormColumns<any>) => JSX.Element | null;
+      lock?: boolean;
     },
     form: Omit<FormInstance, 'scrollToField' | '__INTERNAL__'>,
   ) => JSX.Element | false | null;

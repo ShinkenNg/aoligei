@@ -22,6 +22,7 @@ export interface UseFetchDataAction<T extends RequestData<any>> {
   total: number;
   cancel: () => void;
   reload: () => Promise<void>;
+  setDataSource: (dataSource: T['data'] | T) => void;
   fetchMore: () => void;
   fullScreen?: () => void;
   resetPageIndex: () => void;
@@ -204,6 +205,9 @@ const useFetchData = <T extends RequestData<any>>(
     },
     cancel: fetchListDebounce.cancel,
     pageSize: pageInfo.pageSize,
+    setDataSource: (dataSource) => {
+      setList(dataSource as T['data']);
+    },
     getPageInfo: () => {
       return pageInfo;
     },

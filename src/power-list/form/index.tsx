@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FormInstance, FormItemProps, FormProps } from 'antd/es/form';
 import { Input, Form, Row, Col, TimePicker, InputNumber, DatePicker, Select } from 'antd';
-// import _ from 'lodash';
+import _ from 'lodash';
 import moment, { Moment } from 'moment';
 import RcResizeObserver from 'rc-resize-observer';
 // @ts-ignore
@@ -10,6 +10,7 @@ import useMergeValue from 'use-merge-value';
 import { ConfigConsumer, ConfigConsumerProps } from 'antd/lib/config-provider';
 import { DownOutlined } from '@ant-design/icons';
 import classNames from 'classnames';
+import { getParams, addUrlParams } from '../../utils/utils';
 
 import {
   parsingValueEnumToArray,
@@ -595,7 +596,7 @@ const FormSearch = <T, U = {}>({
   const { span } = searchConfig;
 
   const counter = Container.useContainer();
-  const [collapse, setCollapse] = useMergeValue<boolean>(true, {
+  const [collapse, setCollapse] = useMergeValue<boolean>(false, {
     value: searchConfig.collapsed,
     onChange: searchConfig.onCollapse,
   });
@@ -617,6 +618,17 @@ const FormSearch = <T, U = {}>({
     // 如果不是表单模式，不用进行验证
     if (!isForm) {
       const value = form.getFieldsValue();
+      addUrlParams(value);
+      // let urlPush = `${window.location.origin + window.location.pathname}?`;
+      // _.forEach(_.entries(value), (item) => {
+      //   const [name, val] = item;
+      //   if (val) {
+      //     urlPush += `${name}=${escape(_.toString(val))}&`;
+      //   }
+      // });
+      // urlPush = urlPush.substring(0, urlPush.length - 1);
+      // // @ts-ignore
+      // window.history.pushState(null, null, urlPush);
       if (onSubmit) {
         onSubmit(conversionValue(value, dateFormatter, PowerColumnsMap) as T);
       }
@@ -631,6 +643,10 @@ const FormSearch = <T, U = {}>({
       // console.log(error)
     }
   };
+
+  function willUnmount() {
+    form.resetFields();
+  }
 
   useEffect(() => {
     if (!formRef) {
@@ -649,6 +665,8 @@ const FormSearch = <T, U = {}>({
         },
       };
     }
+    // eslint-disable-next-line consistent-return
+    return willUnmount;
   }, []);
 
   useEffect(() => {
@@ -716,6 +734,11 @@ const FormSearch = <T, U = {}>({
         .filter((_, index) => (collapse && type !== 'form' ? index < (rowNumber - 1 || 1) : true))
         .filter((item) => !!item)
     : [];
+
+    const paramInfo = getParams();
+    useDeepCompareEffect(() => {
+      form.setFieldsValue(paramInfo);
+    }, [paramInfo]);
 
   return (
     <ConfigConsumer>
@@ -786,7 +809,18 @@ const FormSearch = <T, U = {}>({
                           showCollapseButton={columnsList.length > rowNumber - 1 && !isForm}
                           searchConfig={searchConfig}
                           submit={submit}
-                          onReset={onReset}
+                          onReset={() => {
+                            const formSet = form.getFieldsValue();
+                            _.forEach(_.keys(formSet), (key) => {
+                              _.set(formSet, key, '');
+                            });
+                            addUrlParams(formSet);
+                            form.resetFields();
+                            console.log(onReset);
+                            if (_.isFunction(onReset)){
+                              onReset();
+                            }
+                          }}
                           form={{
                             ...form,
                             submit: () => {

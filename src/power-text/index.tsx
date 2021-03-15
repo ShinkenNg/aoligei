@@ -13,7 +13,7 @@ function PowerText<T>(props: PowerTextProps<T>) {
   if (_.isFunction(props.renderValue)) {
     val = props.renderValue(props.value);
   }
-  return <span className='powerText'>{val || ''}</span>;
+  return <span className='powerText'>{_.isUndefined(val) ? '' : val}</span>;
 }
 
 export default PowerText;

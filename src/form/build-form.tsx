@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { FormInstance, FormProps } from 'antd/es/form';
 import {
   Button,
@@ -14,6 +14,7 @@ import {
   Col,
   Radio,
   Rate,
+  Divider,
 } from 'antd';
 
 import { ColProps } from 'antd/es/grid/col';
@@ -23,20 +24,21 @@ import { SizeType } from 'antd/es/config-provider/SizeContext';
 import { Store } from 'rc-field-form/es/interface';
 import { FormProps as RcFormProps } from 'rc-field-form/lib/Form';
 import _ from 'lodash';
+import { ButtonProps } from 'antd/es/button';
 import { numberRegex } from '../utils/regex';
 import PowerDatePicker from '../power-date-picker';
 // import {StatusType} from "@/components/PowerList/component/status";
 import {SearchInput} from '../search-input';
 import PowerText from '../power-text';
-import { useIntl } from '../intl-context';
+import { IntlType, useIntl } from '../intl-context';
 
-import PowerRichText from '../power-richtext';
+import {PowerRichText} from '../power-richtext';
 import {PowerUpload} from '../power-upload';
 import PowerSKU from '../power-sku';
 import {PowerInputNumber} from '../power-input-number';
 
 import { useDeepCompareEffect } from '../power-list/component/util';
-import { BuildFormColumns, PowerListTypes } from '../columns';
+import { BuildFormColumns } from '../columns';
 
 const defaultColConfig = {
   xs: 24,
@@ -47,16 +49,47 @@ const defaultColConfig = {
   xxl: 6,
 };
 
-export interface BuildFormAction<T> {
-  text: string;
-  // 有提交和重置两种预设动作
-  type: 'submit' | 'reset' | 'other';
+export interface BuildFormAction<T> extends Omit<ButtonProps, 'onClick'> {
+  text?: string;
   // 按钮对应的点击事件
-  onClick: (form: FormInstance) => void;
+  onClick?: (form: FormInstance, request: (data: Store) => Promise<any>) => void;
+  // 当传入element时，则直接渲染该元素
+  element?: JSX.Element;
+}
+
+export type ColConfig =  {
+  lg?: number;
+  md?: number;
+  xxl?: number;
+  xl?: number;
+  sm?: number;
+  xs?: number;
+}
+| {
+    span: number;
+  }
+| undefined;
+
+// 高级的表单列，可分组
+export type AdvancedGroupItem<T> = Array<
+{
+  columns: BuildFormColumns<T>[],
+  title?: string;
+  extra?: React.ReactNode;
+  shouldUpdate?: boolean;
+  labelCol?: ColProps;
+  itemColSpan?: ColConfig;
+}
+>
+export interface AdvancedBuildFormColumns<T> {
+  groups: AdvancedGroupItem<T>;
+  useDivider?: boolean;
+  extra?: React.ReactNode;
 }
 
 export interface BuildFormProps<T> extends Omit<RcFormProps, 'form'> {
-  columns: BuildFormColumns<T>[];
+  lock?: boolean;
+  columns: BuildFormColumns<T>[] | AdvancedBuildFormColumns<T>;
   // 表单属性，直接取用ant design form的Props
   form?: FormProps;
   // submit回调
@@ -79,11 +112,246 @@ export interface BuildFormProps<T> extends Omit<RcFormProps, 'form'> {
   // 显示的loading消息文本
   loadingText?: string;
   // 一行的col布局
-  itemColSpan?: number | typeof defaultColConfig;
+  itemColSpan?: ColConfig;
   // 请求数据的方法
   request: (data: Store) => Promise<any>;
   // 获取form实例
   getInstance?: (form: FormInstance<any>) => void;
+}
+
+export const FormInputRender: React.FC<{
+  item: BuildFormColumns<any>;
+  value?: any;
+  intl: IntlType;
+  lock?: boolean;
+  form?: Omit<FormInstance, 'scrollToField' | '__INTERNAL__'>;
+  onChange?: (value: any) => void;
+  onSelect?: (value: any) => void;
+}> = (props) => {
+  /* 被form接管之后，value和change select事件都被传进生成item中 */
+  const { item, intl, form, lock, ...rest } = props;
+
+  const { buildFormValueType } = item;
+
+  if (item.renderBuildFormItem) {
+    const { renderBuildFormItem, ...restItem } = item;
+    const defaultRender = (newItem: BuildFormColumns<any>) => (
+      <FormInputRender
+        {...({
+          ...props,
+          item: newItem,
+        } || null)}
+      />
+    );
+
+    // 注入受控值
+    const dom = renderBuildFormItem(
+      restItem,
+      { ...rest, defaultRender, lock },
+      form as any,
+    ) as React.ReactElement;
+
+    // 验证元素
+    if (!React.isValidElement(dom)) {
+      // 非有效，返回
+      return dom;
+    }
+    const defaultProps = dom.props as any;
+    // 以dom本身的props为主
+    return React.cloneElement(dom, { ...rest, ...defaultProps });
+  }
+
+  // 取extra props并注入受控属性
+  const extraProps = {...(item.buildFormItemExtraProps || {}), ...rest};
+
+  // 当表单锁定时，所有组件都不可编辑
+  if (lock) {
+    return <PowerText {...extraProps} />;
+  }
+
+  if (!_.isEmpty(item.valueEnum)) {
+    // eslint-disable-next-line no-shadow
+    const options = _.map(
+      _.filter(_.entries(item.valueEnum), (n) => {
+        const [,label] = n;
+        return !_.get(label, 'hideInForm');
+      }),
+      (valueItem) => {
+      const [value, label] = valueItem;
+      let ItemComp: any = Select.Option;
+      // 判断组件类型
+      if (buildFormValueType === 'radio') {
+        ItemComp = Radio;
+      }
+
+      // 如果是数字，需要精确
+      return (
+        <ItemComp value={numberRegex.test(value) ? _.toNumber(value) : value} key={value}>
+          {label.text}
+        </ItemComp>
+      );
+    });
+    let GroupComp: any = Select;
+    if (buildFormValueType === 'radio') {
+      GroupComp = Radio.Group;
+    }
+    return (
+      <GroupComp {...extraProps}>
+        {options}
+      </GroupComp>
+    );
+  }
+
+  // 取两种类型之一
+  const valueType = buildFormValueType || item.valueType;
+  switch (valueType) {
+    case 'money':
+      return <InputNumber {...extraProps} />;
+    case 'digit':
+      return <PowerInputNumber {...extraProps} />;
+    case 'time':
+      return <TimePicker {...extraProps} />;
+    case 'date':
+      return <PowerDatePicker {...extraProps} />;
+    case 'dateTime':
+      return <PowerDatePicker {...extraProps} showTime />;
+    case 'dateTimeRange':
+      return (
+        <DatePicker.RangePicker
+          {...extraProps}
+          placeholder={[
+            intl.formatMessage('tableForm.selectPlaceholder', { title: item.title }, '请选择'),
+            intl.formatMessage('tableForm.selectPlaceholder', { title: item.title }, '请选择'),
+          ]}
+        />
+      );
+    case 'textarea':
+      return <Input.TextArea {...extraProps} />;
+    case 'searchInput':
+      return <SearchInput {...extraProps} />;
+    case 'powerText':
+      return <PowerText {...extraProps} />;
+    case 'password':
+      return <Input.Password {...extraProps} />;
+    case 'richText':
+      return <PowerRichText {...extraProps} />;
+    case 'upload':
+      return <PowerUpload {...extraProps} />;
+    case 'sku':
+      return <PowerSKU {...extraProps} />;
+    case 'rate':
+      return <Rate {...extraProps}/>;
+    default:
+      // @ts-ignore
+      return <Input autoComplete="off" {...extraProps} />;
+  }
+}
+
+const buildItem = (props: {
+  item: BuildFormColumns<any>,
+  intl: IntlType,
+  formInstance?: FormInstance<any>,
+  lock?: boolean,
+  itemCol: ColConfig,
+  labelCol?: ColProps,
+}) => {
+  const {item, intl, formInstance, itemCol, labelCol, lock} = props;
+  // 判断是否显示
+  if (_.isFunction(item.buildFormIsRenderItem)) {
+    if (!formInstance) {
+      return false;
+    }
+    if (!item.buildFormIsRenderItem(formInstance)) {
+      return false;
+    }
+  }
+  if (_.isBoolean(item.buildFormIsRenderItem)) {
+    if (!formInstance) {
+      return false;
+    }
+    if (!item.buildFormIsRenderItem) {
+      return false;
+    }
+  }
+  // form隐藏或者类型是操作的，不创建
+  if (item.hideInForm || item.valueType === 'option') {
+    return false;
+  }
+  // 样式上的隐藏
+  let hide = item.buildFormHideItem;
+  if (_.isFunction(item.buildFormHideItem)) {
+    if (!formInstance) {
+      return false;
+    }
+    hide = item.buildFormHideItem(formInstance);
+  }
+
+  const rules = item.rules || [];
+  // 在设置了必填样式时，帮忙填充一条必填规则
+  if (item.required && _.findIndex(rules, {required: true}) < 0) {
+    const requiredItem = {
+      required: true,
+      // message: `${item.title} ${intl.formatMessage({ id: 'tooltip.required' })}`,
+    };
+    rules.push(requiredItem);
+  }
+
+  // 如果没有placeholder,则为其插入默认的,可配置国际化
+  if (!_.get(item, 'buildFormItemExtraProps.placeholder')) {
+    let placeholder = '';
+    let msgId = 'tableForm.inputPlaceholder';
+    const selectType = [
+      'searchInput',
+      'date',
+      'dateRange',
+      'dateTimeRange',
+      'dateTime',
+      'time',
+    ];
+    if (
+      _.get(item, 'valueEnum') ||
+      _.get(item, 'radioEnum') ||
+      _.get(item, 'selectEnum')
+    ) {
+      msgId = 'tableForm.selectPlaceholder';
+    }
+    if (_.includes(selectType, _.get(item, 'buildFormValueType'))) {
+      msgId = 'tableForm.selectPlaceholder';
+    }
+    placeholder = intl.formatMessage(msgId, { title: item.title }, msgId);
+    _.set(item, 'buildFormItemExtraProps.placeholder', placeholder);
+  }
+
+  let dataIndex = _.get(item, 'dataIndex');
+  if (_.includes(_.toString(item.dataIndex), '.')) {
+    dataIndex = _.split(_.toString(item.dataIndex), '.');
+  }
+
+  const dependencies = _.get(item, 'dependencies');
+
+  return (
+    <Col
+      {...itemCol}
+      className={hide ? 'eom-hide' : ''}
+      style={hide ? {display: 'none'} : {}}
+      key={`form_${item.title}_${item.dataIndex}_`}
+    >
+      <Form.Item
+        rules={rules}
+        required={item.required}
+        name={dataIndex}
+        labelCol={labelCol}
+        label={item.title}
+        dependencies={dependencies}
+        trigger={item.trigger}
+        shouldUpdate={item.shouldUpdate}
+        validateTrigger={item.validateTrigger}
+        extra={item.extra}
+      >
+        <FormInputRender item={item} intl={intl} form={formInstance} lock={lock} />
+      </Form.Item>
+    </Col>
+  );
 }
 
 export function BuildForm<T>(props: BuildFormProps<T>) {
@@ -97,7 +365,9 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
     postData,
     loadingText,
     itemColSpan,
+    onValuesChange,
     request,
+    lock,
     ...rest
   } = props;
   const {
@@ -107,7 +377,24 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
     initialValues: formInitialValues,
   } = form || {};
 
-  const columns = _.orderBy(originColumns, 'buildFormOrder', 'desc');
+  // 获取全部列与排序
+  let columns: any;
+  // 非数组的是则当作高级配置
+  if (!_.isArray(originColumns)) {
+    // 存在高级Columns
+    columns = _.cloneDeep(originColumns);
+    const groups = _.get(originColumns, 'groups');
+    const newGroups: any[] = [];
+    _.forEach(groups, (group) => {
+      const tempGroup = _.cloneDeep(group);
+      const orderColumns = _.orderBy(_.get(group, 'columns'), 'buildFormOrder', 'desc');
+      _.set(tempGroup, 'columns', orderColumns);
+      newGroups.push(tempGroup);
+    });
+    _.set(columns, 'groups', newGroups);
+  } else {
+    columns = _.orderBy(originColumns, 'buildFormOrder', 'desc');
+  }
 
   const labelCol: ColProps = formLabelCol || { span: 4 };
   const wrapperCol: ColProps = formWrapperCol || { span: 24 };
@@ -115,26 +402,32 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
   const initialValues = formInitialValues || {};
   const size: SizeType = formSize || 'middle';
 
-  const itemCol = _.isNumber(itemColSpan) ? { span: itemColSpan } : defaultColConfig;
+  const itemCol = _.isNumber(itemColSpan) ? { span: itemColSpan } : (itemColSpan || defaultColConfig);
 
   // 使用表单hooks
   const [formHook] = Form.useForm();
 
+  // @ts-ignore
+  window.formHook_debug = formHook;
+
+  const formInstanceRef = useRef<FormInstance<any>>();
+
   // 国际化hooks
   const intl = useIntl();
 
-  // 定义类型
-  const selfType: PowerListTypes = 'form';
-
-  // 保存表单值, 也可触发rerender
-  const [formValues, setFormValues] = useState({});
-
   const [submitting, setSubmitting] = useState(false);
+
+  // 对表单进行更新
+  const [, updateState] = React.useState();
+
+
+  // @ts-ignore
+  const forceUpdate = useCallback(() => updateState({}), []);
 
   useDeepCompareEffect(() => {
     // 初始值不同时，需要更新进form
-    setFormValues(initialValues);
-    formHook.resetFields();
+    formInstanceRef.current?.setFieldsValue(initialValues);
+    forceUpdate();
   }, [initialValues]);
 
   useDeepCompareEffect(() => {
@@ -143,148 +436,21 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
     }
   }, [formHook]);
 
-  // 接管表单的字段变化
-  const onFormValueChange = () => {
-    const values: Store = formHook.getFieldsValue();
-    setFormValues(values);
-    if (_.isFunction(onChange)) {
-      onChange(formValues);
-    }
-  };
-
-  // 暴露的外部onChange回调
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const onCallbackChange = (dataIndex?: string | number | (string | number)[], value?: any) => {
-    const result = {};
-    // @ts-ignore
-    _.set(result, dataIndex, value);
-
-    formHook.setFieldsValue(result);
-    formHook.resetFields();
-    onFormValueChange();
-  };
-
-  // 渲染表单项
-  const renderFormItem = (item: BuildFormColumns<T>) => {
-    if (_.isFunction(item.renderBuildFormItem)) {
-      const { dataIndex } = item;
-      const config = {
-        defaultRender: (columnItem: BuildFormColumns<T>) => {
-          return <span>{columnItem.label} 没有得到正确渲染，请检查代码</span>;
-        },
-        onChange: (value: any) => {
-          onCallbackChange(dataIndex, value);
-        },
-        onSelect: (value: any) => {
-          onCallbackChange(dataIndex, value);
-        },
-        type: selfType,
-        value: _.get(formHook.getFieldsValue(), `${dataIndex}`),
-      };
-      // 调用item自己的渲染
-      return item.renderBuildFormItem(item, config, formHook);
-    }
-    // 取extra props
-    const extraProps = item.buildFormItemExtraProps || {};
-
-    // 借助表单设定的shouldUpdate，实现表单更新时处理该字段，有助于后期剥离Antd Form
-    if (item.shouldUpdate) {
-      extraProps.onChange = () => {
-        onFormValueChange();
-      }
-    }
-    if (!_.isEmpty(item.valueEnum)) {
-      // eslint-disable-next-line no-shadow
-      const options = _.map(
-        _.filter(_.entries(item.valueEnum), (n) => {
-          const [,label] = n;
-          return !_.get(label, 'hideInForm');
-        }), 
-        (valueItem) => {
-        const [value, label] = valueItem;
-        let ItemComp: any = Select.Option;
-        // 判断组件类型
-        if (item.buildFormValueType === 'radio') {
-          ItemComp = Radio;
-        }
-
-        // 如果是数字，需要精确
-        return (
-          <ItemComp value={numberRegex.test(value) ? _.toNumber(value) : value} key={value}>
-            {label.text}
-          </ItemComp>
-        );
-      });
-      let GroupComp: any = Select;
-      if (item.buildFormValueType === 'radio') {
-        GroupComp = Radio.Group;
-      }
-      return (
-        <GroupComp {...extraProps}>
-          {options}
-        </GroupComp>
-      );
-    }
-
-    // 取两种类型之一
-    const valueType = item.buildFormValueType || item.valueType;
-    switch (valueType) {
-      case 'money':
-        return <InputNumber {...extraProps} />;
-      case 'digit':
-        return <PowerInputNumber {...extraProps} />;
-      case 'time':
-        return <TimePicker {...extraProps} />;
-      case 'date':
-        return <PowerDatePicker {...extraProps} />;
-      case 'dateTime':
-        return <PowerDatePicker {...extraProps} showTime />;
-      case 'dateTimeRange':
-        return (
-          <DatePicker.RangePicker
-            {...extraProps}
-            placeholder={[
-              intl.formatMessage('tableForm.selectPlaceholder', { title: item.title }, '请选择'),
-              intl.formatMessage('tableForm.selectPlaceholder', { title: item.title }, '请选择'),
-            ]}
-          />
-        );
-      case 'textarea':
-        return <Input.TextArea {...extraProps} />;
-      case 'searchInput':
-        return <SearchInput {...extraProps} />;
-      case 'powerText':
-        return <PowerText {...extraProps} />;
-      case 'password':
-        return <Input.Password {...extraProps} />;
-      case 'richText':
-        return <PowerRichText {...extraProps} />;
-      case 'upload':
-        return <PowerUpload {...extraProps} />;
-      case 'sku':
-        return <PowerSKU {...extraProps} />;
-      case 'rate':
-        return <Rate {...extraProps}/>;
-      default:
-        // @ts-ignore
-        return <Input autoComplete="off" {...extraProps} />;
-    }
-  };
-
   // submit动作，分用户是否自定义了submit钩子两种情况
   const formSubmit = async () => {
+    // 设置提交loading
+    setSubmitting(true);
     // 进行表单验证
     try {
-      // 设置提交loading
-      setSubmitting(true);
-      let values = await formHook.validateFields();
-
-      if (_.isFunction(postData)) {
-        values = postData(values);
-      }
-
       const text = loadingText || intl.getMessage('tableForm.submitting', '提交中...');
       const hide = message.loading(text);
+      window.focus();
+      // timeout解决提交时意外的数据超时修改
+      let values = await formHook.validateFields();
+      if (_.isFunction(postData)) {
+        values = postData(formHook.getFieldsValue());
+      }
+
       // const values = formHook.getFieldsValue();
       if (_.isFunction(onSubmit)) {
         try {
@@ -315,13 +481,50 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
       }
       setSubmitting(false);
       hide();
-    } finally {
+    } catch(e) {
+      window.console.error(e);
+    }
+    finally {
       setSubmitting(false);
     }
   };
 
   // 预设的渲染表单动作，关于表单动作，如用户不自定义，则仅有重置和提交
   const renderFormAction = () => {
+    // 处理用户定义的动作
+    const {actions} = props;
+
+    if (_.isArray(actions)) {
+      const actionElem: JSX.Element[] = [];
+      _.forEach(actions, (action, index) => {
+        const {text, onClick, element, ...btnRest} = action;
+        if (element) {
+          actionElem.push(element);
+        } else {
+          actionElem.push(
+            <Button
+              {...btnRest}
+              onClick={() => {
+                if (_.isFunction(onClick)) {
+                  onClick(formHook, request);
+                }
+              }}
+              key={`form_btn_op_${index}`}
+            >
+              {text}
+            </Button>
+          );
+        }
+      });
+      return (
+        <Form.Item style={{ textAlign: 'right' }}>
+          <Space>
+            {actionElem}
+          </Space>
+        </Form.Item>
+      );
+    }
+
     return (
       <Form.Item style={{ textAlign: 'right' }}>
         <Space>
@@ -347,6 +550,74 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
     );
   };
 
+  let domItemList: any;
+  // 是否高级表单
+  if ((columns as Object).hasOwnProperty('groups')) {
+    // 特殊处理
+    const useDivider = _.get(columns, 'useDivider', 'true');
+    const columnList: any[] = [];
+    _.forEach(_.get(columns, 'groups'), (group, groupIndex) => {
+      const isLast = _.toInteger(groupIndex) >= _.get(columns, 'groups.length') - 1;
+      const extra = _.get(group, 'extra');
+      const shouldUpdate = _.get(group, 'shouldUpdate', false);
+      const col = _.get(group, 'itemColSpan') || itemCol;
+      const columnItems: any[] = _.map(_.get(group, 'columns'), (item) => {
+        return buildItem({
+          item,
+          intl,
+          formInstance: formInstanceRef.current,
+          itemCol: col,
+          labelCol: _.get(group, 'labelCol'),
+          lock,
+        });
+      });
+      columnList.push(
+        <div style={{width: '100%'}} key={`form_group_${groupIndex}`}>
+          {
+            _.get(group, 'title') &&
+            <div style={{fontSize: 15, color: '#333', fontWeight: 600, marginBottom: 12}}>{_.get(group, 'title')}</div>
+          }
+          <Row gutter={16} justify="start">
+            <Form.Item shouldUpdate={shouldUpdate} noStyle>
+              {columnItems}
+            </Form.Item>
+          </Row>
+          {(!isLast && useDivider) && <Divider type="horizontal" />}
+          {
+            extra && <div style={{marginTop: 12}}>{extra}</div>
+          }
+        </div>
+      );
+    });
+    if (_.get(columns, 'extra')) {
+      // 有额外插入的，例如按钮、说明等
+      columnList.push(
+        <div style={{marginTop: 12}}>
+          {_.get(columns, 'extra')}
+        </div>
+      );
+    }
+    domItemList = columnList;
+  } else {
+    const itemList = formInstanceRef.current ? _.map(columns, (item) => {
+      return buildItem({
+        item,
+        intl,
+        formInstance: formInstanceRef.current,
+        itemCol,
+        lock,
+      });
+    }) : [];
+    domItemList = (
+      <Row gutter={16} justify="start">
+        <Form.Item shouldUpdate noStyle>
+          {itemList}
+        </Form.Item>
+      </Row>
+    );
+  }
+
+
   return (
     <div>
       <Form
@@ -357,96 +628,24 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
         initialValues={initialValues}
         size={size}
         form={formHook}
+        onValuesChange={(changedValues, values) => {
+          if (_.isFunction(onValuesChange)) {
+            onValuesChange(changedValues, values);
+          }
+          forceUpdate();
+        }}
       >
-        <Row gutter={16} justify="start">
-          {_.map(columns, (item) => {
-            // 判断是否显示
-            if (_.isFunction(item.buildFormIsRenderItem)) {
-              if (!item.buildFormIsRenderItem(formHook)) {
-                return false;
-              }
-            }
-            if (_.isBoolean(item.buildFormIsRenderItem)) {
-              if (!item.buildFormIsRenderItem) {
-                return false;
-              }
-            }
-            // form隐藏或者类型是操作的，不创建
-            if (item.hideInForm || item.valueType === 'option') {
-              return false;
-            }
-            // 样式上的隐藏
-            let hide = item.buildFormHideItem;
-            if (_.isFunction(item.buildFormHideItem)) {
-              hide = item.buildFormHideItem(formHook);
-            }
+        <Form.Item shouldUpdate noStyle>
+          {(formInstance) => {
+            // @ts-ignore
+            formInstanceRef.current = formInstance;
+            return null;
+          }}
+        </Form.Item>
 
-            const rules = item.rules || [];
-            // 在设置了必填样式时，帮忙填充一条必填规则
-            if (item.required && _.findIndex(rules, {required: true}) < 0) {
-              const requiredItem = {
-                required: true,
-                // message: `${item.title} ${intl.formatMessage({ id: 'tooltip.required' })}`,
-              };
-              rules.push(requiredItem);
-            }
-
-            // 如果没有placeholder,则为其插入默认的,可配置国际化
-            if (!_.get(item, 'buildFormItemExtraProps.placeholder')) {
-              let placeholder = '';
-              let msgId = 'tableForm.inputPlaceholder';
-              const selectType = [
-                'searchInput',
-                'date',
-                'dateRange',
-                'dateTimeRange',
-                'dateTime',
-                'time',
-              ];
-              if (
-                _.get(item, 'valueEnum') ||
-                _.get(item, 'radioEnum') ||
-                _.get(item, 'selectEnum')
-              ) {
-                msgId = 'tableForm.selectPlaceholder';
-              }
-              if (_.includes(selectType, _.get(item, 'buildFormValueType'))) {
-                msgId = 'tableForm.selectPlaceholder';
-              }
-              placeholder = intl.formatMessage(msgId, { title: item.title }, msgId);
-              _.set(item, 'buildFormItemExtraProps.placeholder', placeholder);
-            }
-
-            let dataIndex = _.get(item, 'dataIndex');
-            if (_.includes(_.toString(item.dataIndex), '.')) {
-              dataIndex = _.split(_.toString(item.dataIndex), '.');
-            }
-
-            const dependencies = _.get(item, 'dependencies');
-
-            return (
-              <Col
-                {...itemCol}
-                className={hide ? 'eom-hide' : ''}
-                key={`form_${item.title}_${item.dataIndex}_`}
-              >
-                <Form.Item
-                  rules={rules}
-                  required={item.required}
-                  name={dataIndex}
-                  label={item.title}
-                  dependencies={dependencies}
-                  trigger={item.trigger}
-                  shouldUpdate={item.shouldUpdate}
-                  validateTrigger={item.validateTrigger}
-                  extra={item.extra}
-                >
-                  {renderFormItem(item)}
-                </Form.Item>
-              </Col>
-            );
-          })}
-        </Row>
+        {
+          domItemList
+        }
         {renderFormAction()}
       </Form>
     </div>

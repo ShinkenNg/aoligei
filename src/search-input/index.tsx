@@ -1,8 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { message, Select, Spin } from 'antd';
 import _ from 'lodash';
+import { SelectProps } from 'antd/es/select';
 
-export interface SearchInputProps {
+// 250毫秒延迟
+const TIMEOUT_DELAY = 250;
+
+export interface SearchInputProps extends SelectProps<any> {
   request?: (data: any) => Promise<any>;
   // 调用接口的额外参数 kv
   extraData?: {
@@ -17,7 +21,7 @@ export interface SearchInputProps {
   // 分页大小
   pageSize?: number;
   // 渲染选择项
-  customOptionRender?: (data: any) => JSX.Element | null;
+  customOptionRender?: (data: any) => JSX.Element | JSX.Element[] | null;
   // 过滤选择项
   customOptionFilter?: (data: any) => any;
 
@@ -30,6 +34,13 @@ export interface SearchInputProps {
   // placeholder
   placeholder?: string;
   exclude?: any | any[];
+  // 必须包含的
+  include?: any[];
+  initLoad?: boolean | {
+    initData?: {
+      [key: string]: any;
+    }
+  };
   onDeselect?: (value?: any) => void;
   mode?: 'multiple' | 'tags';
 }
@@ -46,22 +57,27 @@ export function SearchInput(props: SearchInputProps) {
     customOptionFilter,
     placeholder,
     exclude,
+    include,
+    onFocus,
+    initLoad,
+    ...rest
   } = props;
+
+  let timer:any = null;
 
   const [optionData, setOptionData] = useState([]);
 
-  const [keyword, setKeyword] = useState('');
-
+  const [keywordCache, setKeywordCache] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const requestSearch = useCallback(async () => {
+  const requestSearch = useCallback(async (keyword: any, extra?: {[key: string]: any}) => {
     if (!_.isFunction(request)) {
-      message.error('Not Request');
+      message.error('Search Input: Not Request');
       return;
     }
     // 默认搜索name
     const key = searchKey || 'name';
-    const searchData = { ...extraData } || {};
+    const searchData = { ...extraData, ...extra } || {};
     if (!_.isEmpty(keyword)) {
       // 不为空设置搜索条件
       _.set(searchData, key, keyword);
@@ -71,19 +87,31 @@ export function SearchInput(props: SearchInputProps) {
       _.set(searchData, 'pageSize', _.toInteger(pageSize));
     }
     setLoading(true);
-    const { data } = await request(searchData);
+    try {
+      const { data } = await request(searchData);
+      setOptionData(data);
+      setKeywordCache(keyword);
+    } finally {
+      setLoading(false);
+    }
     // const data: React.SetStateAction<never[]> = [];
-    setLoading(false);
-    setOptionData(data);
-  }, [keyword]);
+  }, []);
 
   useEffect(() => {
-    requestSearch();
-  }, [keyword]);
+    // 需要初始化加载
+    if (initLoad) {
+      requestSearch('', _.get(initLoad, 'initData', {}));
+    }
+  }, []);
 
   const handleSearch = (value: any) => {
-    // 设置关键词，触发依赖此state的effect
-    setKeyword(value);
+    clearTimeout(timer);
+    // 设置关键词，延时触发依赖此state的effect
+    timer = setTimeout(() => {
+      if (value !== keywordCache) {
+        requestSearch(value);
+      }
+    }, TIMEOUT_DELAY);
   };
 
   const defaultRenderOptions = (originData: any) => {
@@ -120,22 +148,48 @@ export function SearchInput(props: SearchInputProps) {
 
   const renderOptions = customOptionRender || defaultRenderOptions;
 
-  const options = renderOptions(optionData);
+  let newOptionData:any = _.cloneDeep(optionData);
+  if (_.isArray(include)) {
+    newOptionData = _.uniqBy(_.concat(optionData, include), valueKey || 'id');
+  }
+
+  const options = renderOptions(newOptionData);
 
   return (
     <Select
+      {...rest}
       showSearch
       filterOption={false}
       defaultActiveFirstOption={false}
       notFoundContent={loading ? <Spin size="small" /> : null}
       loading={loading}
       onSearch={handleSearch}
+      onFocus={(e) => {
+        if (_.isFunction(onFocus)) {
+          onFocus(e);
+        }
+        // 传入空字符串进行搜索
+        handleSearch('');
+      }}
       onChange={(value) => {
         if (_.isFunction(props.onChange)){
-          const match = {};
-          _.set(match, props.valueKey || 'id', value);
-          const record = _.find(optionData, match);
-          props.onChange(value, record);
+          if (_.isArray(value)) {
+            // 对数组的特殊处理
+            const records: any[] = [];
+  ;
+            _.forEach(value, (item) => {
+              const match = {};
+              _.set(match, props.valueKey || 'id', item);
+              const recordTmp = _.find(optionData, match);
+              records.push(recordTmp);
+            });
+            props.onChange(value, records);
+          } else {
+            const match = {};
+            _.set(match, props.valueKey || 'id', value);
+            const record = _.find(optionData, match);
+            props.onChange(value, record);
+          }
         }
       }}
       value={props.value}
