@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FormInstance, FormItemProps, FormProps } from 'antd/es/form';
-import { Input, Form, Row, Col, TimePicker, InputNumber, DatePicker, Select } from 'antd';
+import { Form, Row, Col } from 'antd';
 import _ from 'lodash';
 import moment, { Moment } from 'moment';
 import RcResizeObserver from 'rc-resize-observer';
@@ -10,20 +10,19 @@ import useMergeValue from 'use-merge-value';
 import { ConfigConsumer, ConfigConsumerProps } from 'antd/lib/config-provider';
 import { DownOutlined } from '@ant-design/icons';
 import classNames from 'classnames';
+import { FormInputRender } from '../../form/build-form';
 import { getParams, addUrlParams } from '../../utils/utils';
 
 import {
-  parsingValueEnumToArray,
   useDeepCompareEffect,
   genColumnKey,
-  ObjToMap,
 } from '../component/util';
 import { useIntl, IntlType } from '../../intl-context';
 import Container from '../container';
 import { PowerColumnsValueTypeFunction } from '../default-render';
 import { PowerColumnsValueType } from '../index';
 import FormOption, { FormOptionProps } from './form-option';
-import { PowerListTypes, PowerColumns } from '../../columns';
+import { BuildFormColumns } from '../../columns';
 import './index.less';
 
 /**
@@ -36,18 +35,6 @@ const defaultColConfig = {
   lg: 12,
   xl: 8,
   xxl: 6,
-};
-
-/**
- * 默认的新建表单配置
- */
-const defaultFormColConfig = {
-  xs: 24,
-  sm: 24,
-  md: 24,
-  lg: 24,
-  xl: 24,
-  xxl: 24,
 };
 
 /**
@@ -132,219 +119,216 @@ export interface TableFormItem<T> extends Omit<FormItemProps, 'children'> {
   onSubmit?: (value: T) => void;
   onReset?: () => void;
   form?: Omit<FormProps, 'form'>;
-  type?: PowerListTypes;
   dateFormatter?: 'string' | 'number' | false;
   search?: boolean | SearchConfig;
   formRef?: React.MutableRefObject<FormInstance | undefined> | ((actionRef: FormInstance) => void);
 }
 
-export const FormInputRender: React.FC<{
-  item: PowerColumns<any>;
-  value?: any;
-  form?: Omit<FormInstance, 'scrollToField' | '__INTERNAL__'>;
-  type: PowerListTypes;
-  intl: IntlType;
-  onChange?: (value: any) => void;
-  onSelect?: (value: any) => void;
-}> = (props) => {
-  const { item, intl, form, type, ...rest } = props;
-  const { valueType: itemValueType } = item;
-  // if function， run it
-  const valueType = typeof itemValueType === 'function' ? itemValueType({}) : itemValueType;
-  /**
-   * 自定义 render
-   */
-  if (item.renderFormItem) {
-    /**
-     *删除 renderFormItem 防止重复的 dom 渲染
-     */
-    const { renderFormItem, ...restItem } = item;
-    const defaultRender = (newItem: PowerColumns<any>) => (
-      <FormInputRender
-        {...({
-          ...props,
-          item: newItem,
-        } || null)}
-      />
-    );
+// export const FormInputRender: React.FC<{
+//   item: BuildFormColumns<any>;
+//   value?: any;
+//   form?: Omit<FormInstance, 'scrollToField' | '__INTERNAL__'>;
+//   type: PowerListTypes;
+//   intl: IntlType;
+//   onChange?: (value: any) => void;
+//   onSelect?: (value: any) => void;
+// }> = (props) => {
+//   const { item, intl, form, type, ...rest } = props;
+//   const { valueType: itemValueType } = item;
+//   // if function， run it
+//   const valueType = typeof itemValueType === 'function' ? itemValueType({}) : itemValueType;
+//   /**
+//    * 自定义 render
+//    */
+//   if (item.renderFormItem) {
+//     /**
+//      *删除 renderFormItem 防止重复的 dom 渲染
+//      */
+//     const { renderFormItem, ...restItem } = item;
+//     const defaultRender = (newItem: BuildFormColumns<any>) => (
+//       <FormInputRender
+//         {...({
+//           ...props,
+//           item: newItem,
+//         } || null)}
+//       />
+//     );
 
-    // 自动注入 onChange 和 value,用户自己很有肯能忘记
-    const dom = renderFormItem(
-      restItem,
-      { ...rest, type, defaultRender },
-      form as any,
-    ) as React.ReactElement;
-    // 有可能不是不是一个组件
-    if (!React.isValidElement(dom)) {
-      return dom;
-    }
-    const defaultProps = dom.props as any;
-    // 已用户的为主，不然过于 magic
-    return React.cloneElement(dom, { ...rest, ...defaultProps });
-  }
+//     // 自动注入 onChange 和 value,用户自己很有肯能忘记
+//     const dom = renderFormItem(
+//       restItem,
+//       { ...rest, type, defaultRender },
+//       form as any,
+//     ) as React.ReactElement;
+//     // 有可能不是不是一个组件
+//     if (!React.isValidElement(dom)) {
+//       return dom;
+//     }
+//     const defaultProps = dom.props as any;
+//     // 已用户的为主，不然过于 magic
+//     return React.cloneElement(dom, { ...rest, ...defaultProps });
+//   }
 
-  if (!valueType || valueType === 'text') {
-    const { valueEnum } = item;
-    if (valueEnum) {
-      return (
-        <Select
-          clearIcon
-          placeholder={intl.formatMessage('tableForm.selectPlaceholder', { title: item.title },'请选择')}
-          {...rest}
-          {...item.formItemProps}
-        >
-          {parsingValueEnumToArray(ObjToMap(valueEnum)).map(({ value, text }) => (
-            <Select.Option key={value} value={value}>
-              {text}
-            </Select.Option>
-          ))}
-        </Select>
-      );
-    }
-    return (
-      <Input
-        placeholder={intl.formatMessage('tableForm.inputPlaceholder', { title: item.title }, '请输入')}
-        {...rest}
-        {...item.formItemProps}
-      />
-    );
-  }
-  if (valueType === 'date') {
-    return (
-      <DatePicker
-        placeholder={intl.formatMessage('tableForm.selectPlaceholder', { title: item.title }, '请选择')}
-        style={{
-          width: '100%',
-        }}
-        {...rest}
-        {...item.formItemProps}
-      />
-    );
-  }
+//   if (!valueType || valueType === 'text') {
+//     const { valueEnum } = item;
+//     if (valueEnum) {
+//       return (
+//         <Select
+//           clearIcon
+//           placeholder={intl.formatMessage('tableForm.selectPlaceholder', { title: item.title },'请选择')}
+//           {...rest}
+//           {...item.formItemProps}
+//         >
+//           {parsingValueEnumToArray(ObjToMap(valueEnum)).map(({ value, text }) => (
+//             <Select.Option key={value} value={value}>
+//               {text}
+//             </Select.Option>
+//           ))}
+//         </Select>
+//       );
+//     }
+//     return (
+//       <Input
+//         placeholder={intl.formatMessage('tableForm.inputPlaceholder', { title: item.title }, '请输入')}
+//         {...rest}
+//         {...item.formItemProps}
+//       />
+//     );
+//   }
+//   if (valueType === 'date') {
+//     return (
+//       <DatePicker
+//         placeholder={intl.formatMessage('tableForm.selectPlaceholder', { title: item.title }, '请选择')}
+//         style={{
+//           width: '100%',
+//         }}
+//         {...rest}
+//         {...item.formItemProps}
+//       />
+//     );
+//   }
 
-  if (valueType === 'dateTime') {
-    return (
-      <DatePicker
-        showTime
-        placeholder={intl.formatMessage('tableForm.selectPlaceholder', { title: item.title }, '请选择')}
-        style={{
-          width: '100%',
-        }}
-        {...rest}
-        {...item.formItemProps}
-      />
-    );
-  }
+//   if (valueType === 'dateTime') {
+//     return (
+//       <DatePicker
+//         showTime
+//         placeholder={intl.formatMessage('tableForm.selectPlaceholder', { title: item.title }, '请选择')}
+//         style={{
+//           width: '100%',
+//         }}
+//         {...rest}
+//         {...item.formItemProps}
+//       />
+//     );
+//   }
 
-  if (valueType === 'dateRange') {
-    return (
-      <DatePicker.RangePicker
-        placeholder={[
-          intl.formatMessage('tableForm.selectPlaceholder', { title: item.title }, '请选择'),
-          intl.formatMessage('tableForm.selectPlaceholder', { title: item.title }, '请选择'),
-        ]}
-        style={{
-          width: '100%',
-        }}
-        {...rest}
-        {...item.formItemProps}
-      />
-    );
-  }
-  if (valueType === 'dateTimeRange') {
-    return (
-      <DatePicker.RangePicker
-        showTime
-        placeholder={[
-          intl.formatMessage('tableForm.selectPlaceholder', { title: item.title } ,'请选择'),
-          intl.formatMessage('tableForm.selectPlaceholder',  { title: item.title } ,'请选择'),
-        ]}
-        style={{
-          width: '100%',
-        }}
-        {...rest}
-        {...item.formItemProps}
-      />
-    );
-  }
+//   if (valueType === 'dateRange') {
+//     return (
+//       <DatePicker.RangePicker
+//         placeholder={[
+//           intl.formatMessage('tableForm.selectPlaceholder', { title: item.title }, '请选择'),
+//           intl.formatMessage('tableForm.selectPlaceholder', { title: item.title }, '请选择'),
+//         ]}
+//         style={{
+//           width: '100%',
+//         }}
+//         {...rest}
+//         {...item.formItemProps}
+//       />
+//     );
+//   }
+//   if (valueType === 'dateTimeRange') {
+//     return (
+//       <DatePicker.RangePicker
+//         showTime
+//         placeholder={[
+//           intl.formatMessage('tableForm.selectPlaceholder', { title: item.title } ,'请选择'),
+//           intl.formatMessage('tableForm.selectPlaceholder',  { title: item.title } ,'请选择'),
+//         ]}
+//         style={{
+//           width: '100%',
+//         }}
+//         {...rest}
+//         {...item.formItemProps}
+//       />
+//     );
+//   }
 
-  if (valueType === 'time') {
-    return (
-      <TimePicker
-        placeholder={intl.formatMessage('tableForm.selectPlaceholder', { title: item.title }, '请选择')}
-        style={{
-          width: '100%',
-        }}
-        {...rest}
-        {...item.formItemProps}
-      />
-    );
-  }
-  if (valueType === 'digit') {
-    return (
-      <InputNumber
-        placeholder={intl.formatMessage('tableForm.inputPlaceholder', { title: item.title }, '请输入')}
-        style={{
-          width: '100%',
-        }}
-        {...rest}
-        {...item.formItemProps}
-      />
-    );
-  }
-  if (valueType === 'money') {
-    return (
-      <InputNumber
-        min={0}
-        precision={2}
-        formatter={(value) => {
-          if (value) {
-            return `${intl.getMessage('moneySymbol', '￥')} ${value}`.replace(
-              /\B(?=(\d{3})+(?!\d))/g,
-              ',',
-            );
-          }
-          return '';
-        }}
-        parser={(value) =>
-          value
-            ? value.replace(
-                new RegExp(`\\${intl.getMessage('moneySymbol', '￥')}\\s?|(,*)`, 'g'),
-                '',
-              )
-            : ''
-        }
-        placeholder={intl.formatMessage('tableForm.inputPlaceholder', { title: item.title },'请输入')}
-        style={{
-          width: '100%',
-        }}
-        {...rest}
-        {...item.formItemProps}
-      />
-    );
-  }
-  if (valueType === 'textarea' && type === 'form') {
-    return (
-      <Input.TextArea
-        placeholder={intl.formatMessage('tableForm.inputPlaceholder', { title: item.title }, '请输入')}
-        {...rest}
-        {...item.formItemProps}
-      />
-    );
-  }
-  return (
-    <Input
-      placeholder={intl.formatMessage('tableForm.inputPlaceholder', { title: item.title }, '请输入')}
-      {...rest}
-      {...item.formItemProps}
-    />
-  );
-};
+//   if (valueType === 'time') {
+//     return (
+//       <TimePicker
+//         placeholder={intl.formatMessage('tableForm.selectPlaceholder', { title: item.title }, '请选择')}
+//         style={{
+//           width: '100%',
+//         }}
+//         {...rest}
+//         {...item.formItemProps}
+//       />
+//     );
+//   }
+//   if (valueType === 'digit') {
+//     return (
+//       <InputNumber
+//         placeholder={intl.formatMessage('tableForm.inputPlaceholder', { title: item.title }, '请输入')}
+//         style={{
+//           width: '100%',
+//         }}
+//         {...rest}
+//         {...item.formItemProps}
+//       />
+//     );
+//   }
+//   if (valueType === 'money') {
+//     return (
+//       <InputNumber
+//         min={0}
+//         precision={2}
+//         formatter={(value) => {
+//           if (value) {
+//             return `${intl.getMessage('moneySymbol', '￥')} ${value}`.replace(
+//               /\B(?=(\d{3})+(?!\d))/g,
+//               ',',
+//             );
+//           }
+//           return '';
+//         }}
+//         parser={(value) =>
+//           value
+//             ? value.replace(
+//                 new RegExp(`\\${intl.getMessage('moneySymbol', '￥')}\\s?|(,*)`, 'g'),
+//                 '',
+//               )
+//             : ''
+//         }
+//         placeholder={intl.formatMessage('tableForm.inputPlaceholder', { title: item.title },'请输入')}
+//         style={{
+//           width: '100%',
+//         }}
+//         {...rest}
+//         {...item.formItemProps}
+//       />
+//     );
+//   }
+//   if (valueType === 'textarea' && type === 'form') {
+//     return (
+//       <Input.TextArea
+//         placeholder={intl.formatMessage('tableForm.inputPlaceholder', { title: item.title }, '请输入')}
+//         {...rest}
+//         {...item.formItemProps}
+//       />
+//     );
+//   }
+//   return (
+//     <Input
+//       placeholder={intl.formatMessage('tableForm.inputPlaceholder', { title: item.title }, '请输入')}
+//       {...rest}
+//       {...item.formItemProps}
+//     />
+//   );
+// };
 
 export const proFormItemRender: (props: {
-  item: PowerColumns<any>;
-  isForm: boolean;
-  type: PowerListTypes;
+  item: BuildFormColumns<any>;
   intl: IntlType;
   formInstance?: Omit<FormInstance, 'scrollToField' | '__INTERNAL__'>;
   colConfig:
@@ -360,12 +344,12 @@ export const proFormItemRender: (props: {
         span: number;
       }
     | undefined;
-}) => null | JSX.Element = ({ item, intl, formInstance, type, isForm, colConfig }) => {
+}) => null | JSX.Element = ({ item, intl, formInstance, colConfig }) => {
   const {
     valueType,
     dataIndex,
     valueEnum,
-    renderFormItem,
+    renderSearchFormItem,
     render,
     hideInForm,
     hideInSearch,
@@ -381,7 +365,7 @@ export const proFormItemRender: (props: {
     ...rest
   } = item;
   const key = genColumnKey(rest.key, dataIndex, index);
-  const dom = <FormInputRender item={item} type={type} intl={intl} form={formInstance} />;
+  const dom = <FormInputRender item={item} intl={intl} form={formInstance} type="search" />;
   if (!dom) {
     return null;
   }
@@ -389,7 +373,7 @@ export const proFormItemRender: (props: {
   // 支持 function 的 title
   const getTitle = () => {
     if (rest.title && typeof rest.title === 'function') {
-      return rest.title(item, 'form');
+      return rest.title(item);
     }
     return rest.title;
   };
@@ -403,7 +387,7 @@ export const proFormItemRender: (props: {
 
   return (
     <Col {...colConfig} key={key}>
-      <Form.Item labelAlign="right" dependencies={deps} label={getTitle()} name={name} {...(isForm && rest)}>
+      <Form.Item labelAlign="right" dependencies={deps} label={getTitle()} name={name} >
         {dom}
       </Form.Item>
     </Col>
@@ -446,7 +430,7 @@ const isDateValueType = (type: PowerColumnsValueType | PowerColumnsValueTypeFunc
 const conversionValue = (
   value: any,
   dateFormatter: string | boolean,
-  PowerColumnsMap: { [key: string]: PowerColumns<any> },
+  PowerColumnsMap: { [key: string]: BuildFormColumns<any> },
 ) => {
   const tmpValue = {};
 
@@ -510,7 +494,6 @@ const conversionValue = (
 const getDefaultSearch = (
   search: boolean | SearchConfig | undefined,
   intl: IntlType,
-  isForm: boolean,
 ): SearchConfig => {
   const config = {
     collapseRender: (collapsed: boolean) => {
@@ -544,7 +527,7 @@ const getDefaultSearch = (
     searchText: intl.getMessage('tableForm.search', defaultSearch.searchText || '查询'),
     resetText: intl.getMessage('tableForm.reset', defaultSearch.resetText || '重置'),
     submitText: intl.getMessage('tableForm.submit', defaultSearch.submitText || '提交'),
-    span: isForm ? defaultFormColConfig : defaultColConfig,
+    span: defaultColConfig,
   };
 
   if (search === undefined || search === true) {
@@ -578,7 +561,6 @@ const FormSearch = <T, U = {}>({
   formRef,
   dateFormatter = 'string',
   search: propsSearch,
-  type,
   form: formConfig = {},
   onReset,
 }: TableFormItem<T>) => {
@@ -592,7 +574,7 @@ const FormSearch = <T, U = {}>({
     Omit<FormInstance, 'scrollToField' | '__INTERNAL__'> | undefined
   >();
 
-  const searchConfig = getDefaultSearch(propsSearch, intl, type === 'form');
+  const searchConfig = getDefaultSearch(propsSearch, intl);
   const { span } = searchConfig;
 
   const counter = Container.useContainer();
@@ -601,7 +583,7 @@ const FormSearch = <T, U = {}>({
     onChange: searchConfig.onCollapse,
   });
   const [PowerColumnsMap, setPowerColumnsMap] = useState<{
-    [key: string]: PowerColumns<any>;
+    [key: string]: BuildFormColumns<any>;
   }>({});
 
   const windowSize = useMediaQuery();
@@ -609,38 +591,15 @@ const FormSearch = <T, U = {}>({
   const [formHeight, setFormHeight] = useState<number | undefined>(88);
   const rowNumber = 24 / colSize || 3;
 
-  const isForm = type === 'form';
-
   /**
    *提交表单，根据两种模式不同，方法不相同
    */
   const submit = async () => {
     // 如果不是表单模式，不用进行验证
-    if (!isForm) {
-      const value = form.getFieldsValue();
-      addUrlParams(value);
-      // let urlPush = `${window.location.origin + window.location.pathname}?`;
-      // _.forEach(_.entries(value), (item) => {
-      //   const [name, val] = item;
-      //   if (val) {
-      //     urlPush += `${name}=${escape(_.toString(val))}&`;
-      //   }
-      // });
-      // urlPush = urlPush.substring(0, urlPush.length - 1);
-      // // @ts-ignore
-      // window.history.pushState(null, null, urlPush);
-      if (onSubmit) {
-        onSubmit(conversionValue(value, dateFormatter, PowerColumnsMap) as T);
-      }
-      return;
-    }
-    try {
-      const value = await form.validateFields();
-      if (onSubmit) {
-        onSubmit(conversionValue(value, dateFormatter, PowerColumnsMap) as T);
-      }
-    } catch (error) {
-      // console.log(error)
+    const value = form.getFieldsValue();
+    addUrlParams(value, true);
+    if (onSubmit) {
+      onSubmit(conversionValue(value, dateFormatter, PowerColumnsMap) as T);
     }
   };
 
@@ -684,10 +643,10 @@ const FormSearch = <T, U = {}>({
   const columnsList = counter.powerColumns
     .filter((item) => {
       const { valueType } = item;
-      if (item.hideInSearch && type !== 'form') {
+      if (item.hideInSearch) {
         return false;
       }
-      if (type === 'form' && item.hideInForm) {
+      if (item.hideInForm) {
         return false;
       }
       if (
@@ -716,22 +675,20 @@ const FormSearch = <T, U = {}>({
   const colConfig = typeof span === 'number' ? { span } : span;
 
   // 这么做是为了在用户修改了输入的时候触发一下子节点的render
-  const [, updateState] = React.useState();
+  const [, updateState] = React.useState<any>();
   const forceUpdate = useCallback(() => updateState({}), []);
 
   const domList = formInstanceRef.current
     ? columnsList
         .map((item) =>
           proFormItemRender({
-            isForm,
             formInstance: formInstanceRef.current,
             item,
-            type,
             colConfig,
             intl,
           }),
         )
-        .filter((_, index) => (collapse && type !== 'form' ? index < (rowNumber - 1 || 1) : true))
+        .filter((_ignore, index) => (collapse ? index < (rowNumber - 1 || 1) : true))
         .filter((item) => !!item)
     : [];
 
@@ -744,25 +701,17 @@ const FormSearch = <T, U = {}>({
     <ConfigConsumer>
       {({ getPrefixCls }: ConfigConsumerProps) => {
         const className = getPrefixCls('pro-table-search');
-        const formClassName = getPrefixCls('pro-table-form');
         return (
           <div
-            className={classNames(className, {
-              [formClassName]: isForm,
-            })}
             style={
-              isForm
-                ? undefined
-                : {
-                    height: formHeight,
-                  }
+              {
+                height: formHeight,
+              }
             }
+            className={className}
           >
             <RcResizeObserver
               onResize={({ height }) => {
-                if (type === 'form') {
-                  return;
-                }
                 setFormHeight(height + 24);
               }}
             >
@@ -793,20 +742,18 @@ const FormSearch = <T, U = {}>({
                     }}
                   </Form.Item>
                   <Row gutter={16} justify="start">
-                    <Form.Item label={isForm && ' '} shouldUpdate noStyle>
+                    <Form.Item shouldUpdate noStyle>
                       <>{domList}</>
                     </Form.Item>
                     <Col
                       {...colConfig}
                       offset={getOffset(domList.length, colSize)}
                       key="option"
-                      className={classNames(`${className}-option`, {
-                        [`${className}-form-option`]: isForm,
-                      })}
+                      className={classNames(`${className}-option`)}
                     >
-                      <Form.Item label={isForm && ' '}>
+                      <Form.Item>
                         <FormOption
-                          showCollapseButton={columnsList.length > rowNumber - 1 && !isForm}
+                          showCollapseButton={columnsList.length > rowNumber - 1}
                           searchConfig={searchConfig}
                           submit={submit}
                           onReset={() => {
@@ -816,7 +763,6 @@ const FormSearch = <T, U = {}>({
                             });
                             addUrlParams(formSet);
                             form.resetFields();
-                            console.log(onReset);
                             if (_.isFunction(onReset)){
                               onReset();
                             }
@@ -828,7 +774,6 @@ const FormSearch = <T, U = {}>({
                               form.submit();
                             },
                           }}
-                          type={type}
                           collapse={collapse}
                           setCollapse={setCollapse}
                         />

@@ -1,67 +1,28 @@
-import React, { FocusEventHandler } from 'react';
-import { Input } from 'antd';
-import _ from 'lodash';
-import { InputProps } from 'antd/es/input';
+import React from 'react';
+import { InputNumber } from 'antd';
+import { InputNumberProps } from 'antd/lib/input-number';
 
-export interface PowerInputNumber extends Omit<InputProps, 'onChange' | 'onBlur'> {
-  precision?: number;
-  onChange?: (value?: any) => void;
-  onBlur?: FocusEventHandler<HTMLInputElement>;
-  min?: number;
-  max?: number;
+export interface PowerInputNumberProps extends Omit<InputNumberProps, 'suffix' | 'prefix'> {
+  suffix?: React.ReactNode;
+  prefix?: React.ReactNode;
 }
 
-const numberRegexp = /[^\d.]/g;
-
-export function PowerInputNumber(props: PowerInputNumber) {
-  const { value, onChange, onBlur, precision = 0, min, max, ...rest } = props;
-  // 构建精度match的正则表达式
-  const precisionRegexp = new RegExp(`^\\d+(?:\\.\\d{0,${precision}})?`);
-
-  const format = (val: any) => {
-    let checkVal = val;
-    if (_.isNumber(min)) {
-      if (checkVal < min) {
-        checkVal = min;
-      }
-    }
-    if (_.isNumber(max)) {
-      if (checkVal > max) {
-        checkVal = max;
-      }
-    }
-    let valueYes = _.toString(checkVal).replace(numberRegexp, '') || '';
-
-    // 替换非数字
-    valueYes = valueYes.replace(numberRegexp, '');
-    // 匹配精度并返回number
-    return valueYes.match(precisionRegexp);
-  };
-
-  const handleChangeToNumber = (event: { target: any; }, toNumber?: boolean) => {
-    const val = format(event.target.value);
-    if (_.isFunction(onChange)) {
-      if (_.isBoolean(toNumber) && toNumber) {
-        onChange(Number(val));
-      } else {
-        onChange(val);
-      }
-    }
-  };
+export function PowerInputNumber(props: PowerInputNumberProps) {
+  const { suffix, prefix, ...rest } = props;
 
   return (
-    <Input
-      {...rest}
-      value={value}
-      onChange={handleChangeToNumber}
-      onBlur={(e) => {
-        // 移除焦点时，一定要转换成number
-        handleChangeToNumber(e, true);
-        if (_.isFunction(onBlur)) {
-          onBlur(e);
-        }
-      }}
-    />
+    <div style={{display: 'flex', alignItems: 'center', width: '100%'}}>
+      {
+        prefix && <div style={{marginRight: 6}}>{prefix}</div>
+      }
+      <InputNumber
+        style={{flex: 1}}
+        {...rest}
+      />
+      {
+        suffix && <div style={{marginLeft: 6}}>{suffix}</div>
+      }
+    </div>
   );
 }
 

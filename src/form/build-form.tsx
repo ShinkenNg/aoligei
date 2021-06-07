@@ -2,6 +2,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import { FormInstance, FormProps } from 'antd/es/form';
 import {
   Button,
+  Card,
   DatePicker,
   Form,
   Input,
@@ -14,9 +15,10 @@ import {
   Col,
   Radio,
   Rate,
-  Divider,
+  ConfigProvider
 } from 'antd';
 
+// import {EditOutlined, EyeOutlined} from '@ant-design/icons';
 import { ColProps } from 'antd/es/grid/col';
 import { FormLayout } from 'antd/es/form/Form';
 import { SizeType } from 'antd/es/config-provider/SizeContext';
@@ -25,8 +27,7 @@ import { Store } from 'rc-field-form/es/interface';
 import { FormProps as RcFormProps } from 'rc-field-form/lib/Form';
 import _ from 'lodash';
 import { ButtonProps } from 'antd/es/button';
-import { numberRegex } from '../utils/regex';
-import PowerDatePicker from '../power-date-picker';
+import { PowerDatePicker } from '../power-date-picker';
 // import {StatusType} from "@/components/PowerList/component/status";
 import {SearchInput} from '../search-input';
 import PowerText from '../power-text';
@@ -54,7 +55,7 @@ export interface BuildFormAction<T> extends Omit<ButtonProps, 'onClick'> {
   // 按钮对应的点击事件
   onClick?: (form: FormInstance, request: (data: Store) => Promise<any>) => void;
   // 当传入element时，则直接渲染该元素
-  element?: JSX.Element;
+  element?: JSX.Element | ((form: FormInstance, request: (data: Store) => Promise<any>) => JSX.Element);
 }
 
 export type ColConfig =  {
@@ -83,11 +84,11 @@ export type AdvancedGroupItem<T> = Array<
 >
 export interface AdvancedBuildFormColumns<T> {
   groups: AdvancedGroupItem<T>;
-  useDivider?: boolean;
   extra?: React.ReactNode;
 }
 
 export interface BuildFormProps<T> extends Omit<RcFormProps, 'form'> {
+  formType?: 'form' | 'search';
   lock?: boolean;
   columns: BuildFormColumns<T>[] | AdvancedBuildFormColumns<T>;
   // 表单属性，直接取用ant design form的Props
@@ -99,7 +100,7 @@ export interface BuildFormProps<T> extends Omit<RcFormProps, 'form'> {
   // onChange回调
   onChange?: (values: Store) => void;
   // submit成功callback
-  onSuccess?: () => void;
+  onSuccess?: (form?: FormInstance<any>) => void;
   // postData 用于提交前处理数据
   postData?: (params: Store) => Store;
   // spinning，设置整个表单外层的spin加载
@@ -107,7 +108,6 @@ export interface BuildFormProps<T> extends Omit<RcFormProps, 'form'> {
   // size, 表单尺寸，等同ant design form
   size?: SizeType;
   // actions, 通过此属性，可覆盖掉默认的表单动作
-  // TODO: 待完善
   actions?: BuildFormAction<T>[];
   // 显示的loading消息文本
   loadingText?: string;
@@ -127,14 +127,16 @@ export const FormInputRender: React.FC<{
   form?: Omit<FormInstance, 'scrollToField' | '__INTERNAL__'>;
   onChange?: (value: any) => void;
   onSelect?: (value: any) => void;
+  type?: 'search'  | 'form';
 }> = (props) => {
   /* 被form接管之后，value和change select事件都被传进生成item中 */
-  const { item, intl, form, lock, ...rest } = props;
+  const { item, intl, form, lock, type, ...rest } = props;
 
   const { buildFormValueType } = item;
 
-  if (item.renderBuildFormItem) {
-    const { renderBuildFormItem, ...restItem } = item;
+  if (item.renderSearchFormItem && type === 'search') {
+    const { renderSearchFormItem, ...restItem } = item;
+    
     const defaultRender = (newItem: BuildFormColumns<any>) => (
       <FormInputRender
         {...({
@@ -143,7 +145,34 @@ export const FormInputRender: React.FC<{
         } || null)}
       />
     );
+    // 注入受控值
+    const dom = renderSearchFormItem(
+      restItem,
+      { ...rest, defaultRender },
+      form as any,
+    ) as React.ReactElement;
 
+    // 验证元素
+    if (!React.isValidElement(dom)) {
+      // 非有效，返回
+      return dom;
+    }
+    const defaultProps = dom.props as any;
+    // 以dom本身的props为主
+    return React.cloneElement(dom, { ...rest, ...defaultProps });
+  }
+
+  if (item.renderBuildFormItem) {
+    const { renderBuildFormItem, ...restItem } = item;
+    
+    const defaultRender = (newItem: BuildFormColumns<any>) => (
+      <FormInputRender
+        {...({
+          ...props,
+          item: newItem,
+        } || null)}
+      />
+    );
     // 注入受控值
     const dom = renderBuildFormItem(
       restItem,
@@ -166,10 +195,13 @@ export const FormInputRender: React.FC<{
 
   // 当表单锁定时，所有组件都不可编辑
   if (lock) {
-    return <PowerText {...extraProps} />;
+    return <PowerText {...extraProps} buildFormValueType={buildFormValueType} valueEnum={item.valueEnum} />;
   }
 
-  if (!_.isEmpty(item.valueEnum)) {
+  // 取两种类型之一
+  const valueType = buildFormValueType || item.valueType;
+
+  if (!_.isEmpty(item.valueEnum) && valueType !== 'powerText') {
     // eslint-disable-next-line no-shadow
     const options = _.map(
       _.filter(_.entries(item.valueEnum), (n) => {
@@ -186,7 +218,7 @@ export const FormInputRender: React.FC<{
 
       // 如果是数字，需要精确
       return (
-        <ItemComp value={numberRegex.test(value) ? _.toNumber(value) : value} key={value}>
+        <ItemComp value={value} key={value}>
           {label.text}
         </ItemComp>
       );
@@ -196,14 +228,12 @@ export const FormInputRender: React.FC<{
       GroupComp = Radio.Group;
     }
     return (
-      <GroupComp {...extraProps}>
+      <GroupComp {...extraProps} value={_.toString(props.value)}>
         {options}
       </GroupComp>
     );
   }
 
-  // 取两种类型之一
-  const valueType = buildFormValueType || item.valueType;
   switch (valueType) {
     case 'money':
       return <InputNumber {...extraProps} />;
@@ -230,7 +260,7 @@ export const FormInputRender: React.FC<{
     case 'searchInput':
       return <SearchInput {...extraProps} />;
     case 'powerText':
-      return <PowerText {...extraProps} />;
+      return <PowerText {...extraProps} buildFormValueType={buildFormValueType} valueEnum={item.valueEnum} />;
     case 'password':
       return <Input.Password {...extraProps} />;
     case 'richText':
@@ -261,7 +291,7 @@ const buildItem = (props: {
     if (!formInstance) {
       return false;
     }
-    if (!item.buildFormIsRenderItem(formInstance)) {
+    if (!item.buildFormIsRenderItem(formInstance, lock)) {
       return false;
     }
   }
@@ -283,7 +313,7 @@ const buildItem = (props: {
     if (!formInstance) {
       return false;
     }
-    hide = item.buildFormHideItem(formInstance);
+    hide = item.buildFormHideItem(formInstance, lock);
   }
 
   const rules = item.rules || [];
@@ -377,6 +407,7 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
     initialValues: formInitialValues,
   } = form || {};
 
+
   // 获取全部列与排序
   let columns: any;
   // 非数组的是则当作高级配置
@@ -457,7 +488,7 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
           await onSubmit(values);
           setTimeout(() => {
             if (_.isFunction(onSuccess)) {
-              onSuccess();
+              onSuccess(formHook);
             }
           });
         } catch (error) {
@@ -471,7 +502,7 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
           message.success(intl.getMessage('tableForm.submitSuccess', '提交成功'));
           setTimeout(() => {
             if (_.isFunction(onSuccess)) {
-              onSuccess();
+              onSuccess(formHook);
             }
           });
         } catch (error) {
@@ -493,13 +524,17 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
   const renderFormAction = () => {
     // 处理用户定义的动作
     const {actions} = props;
+    const actionElem: JSX.Element[] = [];
 
     if (_.isArray(actions)) {
-      const actionElem: JSX.Element[] = [];
       _.forEach(actions, (action, index) => {
         const {text, onClick, element, ...btnRest} = action;
         if (element) {
-          actionElem.push(element);
+          if (_.isFunction(element)) {
+            actionElem.push(element(formHook, request));
+          } else {
+            actionElem.push(element);
+          }
         } else {
           actionElem.push(
             <Button
@@ -516,35 +551,41 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
           );
         }
       });
-      return (
-        <Form.Item style={{ textAlign: 'right' }}>
-          <Space>
-            {actionElem}
-          </Space>
-        </Form.Item>
+    } else {
+      actionElem.push(
+        <Button
+          onClick={() => {
+            // 重置清空
+            formHook.resetFields();
+          }}
+          key="key_action_reset"
+        >
+          {intl.getMessage('tableForm.reset', '重置')}
+        </Button>
+      );
+  
+      actionElem.push(
+        <Button
+          type="primary"
+          htmlType="submit"
+          disabled={submitting}
+          loading={submitting}
+          onClick={formSubmit}
+          key="key_action_submit"
+        >
+          {intl.getMessage('tableForm.submit', '提交')}
+        </Button>
       );
     }
 
+    if (actionElem.length <= 0) {
+      return null;
+    }
+
     return (
-      <Form.Item style={{ textAlign: 'right' }}>
+      <Form.Item style={{textAlign: 'right'}}>
         <Space>
-          <Button
-            onClick={() => {
-              // 重置清空
-              formHook.resetFields();
-            }}
-          >
-            {intl.getMessage('tableForm.reset', '重置')}
-          </Button>
-          <Button
-            type="primary"
-            htmlType="submit"
-            disabled={submitting}
-            loading={submitting}
-            onClick={formSubmit}
-          >
-            {intl.getMessage('tableForm.submit', '提交')}
-          </Button>
+          {actionElem}
         </Space>
       </Form.Item>
     );
@@ -553,11 +594,8 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
   let domItemList: any;
   // 是否高级表单
   if ((columns as Object).hasOwnProperty('groups')) {
-    // 特殊处理
-    const useDivider = _.get(columns, 'useDivider', 'true');
     const columnList: any[] = [];
     _.forEach(_.get(columns, 'groups'), (group, groupIndex) => {
-      const isLast = _.toInteger(groupIndex) >= _.get(columns, 'groups.length') - 1;
       const extra = _.get(group, 'extra');
       const shouldUpdate = _.get(group, 'shouldUpdate', false);
       const col = _.get(group, 'itemColSpan') || itemCol;
@@ -572,7 +610,7 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
         });
       });
       columnList.push(
-        <div style={{width: '100%'}} key={`form_group_${groupIndex}`}>
+        <Card style={{marginBottom: 14}} key={`form_group_${groupIndex}`}>
           {
             _.get(group, 'title') &&
             <div style={{fontSize: 15, color: '#333', fontWeight: 600, marginBottom: 12}}>{_.get(group, 'title')}</div>
@@ -582,11 +620,10 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
               {columnItems}
             </Form.Item>
           </Row>
-          {(!isLast && useDivider) && <Divider type="horizontal" />}
           {
             extra && <div style={{marginTop: 12}}>{extra}</div>
           }
-        </div>
+        </Card>
       );
     });
     if (_.get(columns, 'extra')) {
@@ -609,45 +646,53 @@ export function BuildForm<T>(props: BuildFormProps<T>) {
       });
     }) : [];
     domItemList = (
-      <Row gutter={16} justify="start">
-        <Form.Item shouldUpdate noStyle>
-          {itemList}
-        </Form.Item>
-      </Row>
+      <Card style={{marginBottom: 14}}>
+        <Row gutter={16} justify="start">
+          <Form.Item shouldUpdate noStyle>
+            {itemList}
+          </Form.Item>
+        </Row>
+      </Card>
     );
   }
 
 
   return (
     <div>
-      <Form
-        {...rest}
-        layout={layout}
-        labelCol={labelCol}
-        wrapperCol={wrapperCol}
-        initialValues={initialValues}
-        size={size}
-        form={formHook}
-        onValuesChange={(changedValues, values) => {
-          if (_.isFunction(onValuesChange)) {
-            onValuesChange(changedValues, values);
-          }
-          forceUpdate();
-        }}
-      >
-        <Form.Item shouldUpdate noStyle>
-          {(formInstance) => {
-            // @ts-ignore
-            formInstanceRef.current = formInstance;
-            return null;
+        <Form
+          {...rest}
+          layout={layout}
+          labelCol={labelCol}
+          wrapperCol={wrapperCol}
+          initialValues={initialValues}
+          size={size}
+          form={formHook}
+          onValuesChange={(changedValues, values) => {
+            if (_.isFunction(onValuesChange)) {
+              onValuesChange(changedValues, values);
+            }
+            forceUpdate();
           }}
-        </Form.Item>
-
-        {
-          domItemList
-        }
-        {renderFormAction()}
-      </Form>
+        >
+          <Form.Item shouldUpdate noStyle>
+            {(formInstance) => {
+              // @ts-ignore
+              formInstanceRef.current = formInstance;
+              return null;
+            }}
+          </Form.Item>
+          <ConfigProvider getPopupContainer={trigger => {
+            if (trigger && trigger.parentElement) {
+              return trigger.parentElement;
+            }
+            return document.body;
+          }}>
+            {
+              domItemList
+            }
+          </ConfigProvider>
+          {renderFormAction()}
+        </Form>
     </div>
   );
 }

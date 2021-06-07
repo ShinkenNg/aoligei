@@ -2,7 +2,9 @@ export default {
   moneySymbol: '￥',
   tableForm: {
     search: '查询',
+    edit: '编辑',
     reset: '重置',
+    view: '查看',
     submit: '提交',
     collapsed: '展开',
     expand: '收起',

@@ -3,6 +3,8 @@ export default {
   tableForm: {
     search: 'Buscar',
     reset: 'Limpiar',
+    edit: 'Edit',
+    view: 'View',
     submit: 'Submit',
     collapsed: 'Expandir',
     expand: 'Colapsar',

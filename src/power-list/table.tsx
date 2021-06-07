@@ -16,7 +16,7 @@ import { Resizable } from 'react-resizable';
 
 // eslint-disable-next-line import/no-extraneous-dependencies
 import { noteOnce } from 'rc-util/lib/warning';
-import { PowerColumns, PowerListTypes, PowerColumnType } from '../columns';
+import { BuildFormColumns, PowerColumnType } from '../columns';
 import { IntlProvider, IntlConsumer, IntlType, useIntl } from '../intl-context';
 import useFetchData, { UseFetchDataAction, RequestData, RequestPageMeta } from './use-fetch-data';
 import Container from './container';
@@ -55,7 +55,7 @@ export interface ColumnsState {
 
 export interface PowerListProps<T, U extends { [key: string]: any }>
   extends Omit<TableProps<T>, 'columns' | 'rowSelection'> {
-  columns?: PowerColumns<T>[];
+  columns?: BuildFormColumns<T>[];
 
   params?: U;
 
@@ -179,11 +179,6 @@ export interface PowerListProps<T, U extends { [key: string]: any }>
   style?: React.CSSProperties;
 
   /**
-   * 支持 PowerList 的类型
-   */
-  type?: PowerListTypes;
-
-  /**
    * 提交表单时触发
    */
   onSubmit?: (params: U) => void;
@@ -299,7 +294,7 @@ const mergePagination = <T extends any[], U>(
 export type ColumnEmptyText = string | false;
 
 interface ColumRenderInterface<T> {
-  item: PowerColumns<T>;
+  item: BuildFormColumns<T>;
   text: any;
   row: T;
   index: number;
@@ -312,7 +307,7 @@ interface ColumRenderInterface<T> {
  * @param item
  * @param text
  */
-const genEllipsis = (dom: React.ReactNode, item: PowerColumns<any>, text: string) => {
+const genEllipsis = (dom: React.ReactNode, item: BuildFormColumns<any>, text: string) => {
   if (!item.ellipsis) {
     return dom;
   }
@@ -323,7 +318,7 @@ const genEllipsis = (dom: React.ReactNode, item: PowerColumns<any>, text: string
   );
 };
 
-const genCopyable = (dom: React.ReactNode, item: PowerColumns<any>) => {
+const genCopyable = (dom: React.ReactNode, item: BuildFormColumns<any>) => {
   if (item.copyable || item.ellipsis) {
     return (
       <Typography.Paragraph
@@ -410,7 +405,7 @@ const columRender = <T, U = any>({
  * @param columnEmptyText
  */
 const genColumnList = <T, U = {}>(
-  columns: PowerColumns<T>[],
+  columns: BuildFormColumns<T>[],
   map: {
     [key: string]: ColumnsState;
   },
@@ -421,7 +416,7 @@ const genColumnList = <T, U = {}>(
       const { title } = item;
       return {
         ...item,
-        title: title && typeof title === 'function' ? title(item, 'table') : title,
+        title: title && typeof title === 'function' ? title(item) : title,
         valueEnum: ObjToMap(item.valueEnum),
       };
     })
@@ -508,7 +503,6 @@ const PowerList = <T extends {}, U extends object>(
     tableAlertRender,
     defaultClassName,
     formRef,
-    type = 'table',
     onReset = () => {},
     columnEmptyText = '-',
     getPageMeta,
@@ -879,22 +873,19 @@ const PowerList = <T extends {}, U extends object>(
       getPopupContainer={() => ((rootRef.current || document.body) as any) as HTMLElement}
     >
       <div className={className} id="ant-design-pro-table" style={style} ref={rootRef}>
-        {(search || type === 'form') && (
+        {(search) && (
           <FormSearch<U>
             {...rest}
-            type={props.type}
             formRef={formRef}
             onSubmit={(value) => {
-              if (type !== 'form') {
-                setFormSearch(
-                  beforeSearchSubmit({
-                    ...value,
-                    _timestamp: Date.now(),
-                  }),
-                );
-                // back first page
-                action.resetPageIndex();
-              }
+              setFormSearch(
+                beforeSearchSubmit({
+                  ...value,
+                  _timestamp: Date.now(),
+                }),
+              );
+              // back first page
+              action.resetPageIndex();
 
               if (props.onSubmit) {
                 props.onSubmit(value);
@@ -911,7 +902,6 @@ const PowerList = <T extends {}, U extends object>(
           />
         )}
 
-        {type !== 'form' && (
           <Card
             bordered={false}
             style={{
@@ -1015,7 +1005,6 @@ const PowerList = <T extends {}, U extends object>(
               }}
             />
           </Card>
-        )}
       </div>
     </ConfigProvider>
   );

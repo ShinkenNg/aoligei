@@ -6,16 +6,15 @@ import { DatePickerProps } from 'antd/lib/date-picker/index';
 
 export function PowerDatePicker(props: DatePickerProps) {
   const { value, onChange, ...other } = props;
-  const time = value ? moment(value) : undefined;
+  // eslint-disable-next-line no-nested-ternary
+  const time = moment.isMoment(value)? value : (value ? moment(value) : undefined);
   const triggerChange = (_value: Moment | null, dateStr: string) => {
     if (_.isFunction(onChange)) {
-      // 将参数反转， 忽略掉这个提示
-      // @ts-ignore
-      onChange(dateStr, _value);
+      onChange(_value, dateStr);
     }
   };
 
-  return <DatePicker value={time} onChange={triggerChange} {...other} />;
+  return <DatePicker value={time} onChange={triggerChange} {...other} allowClear={false} />;
 }
 
 export default PowerDatePicker;

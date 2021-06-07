@@ -1,12 +1,12 @@
 import React from 'react';
 import { FormInstance } from 'antd/es/form';
 import { Button, Space } from 'antd';
-import { PowerListTypes } from '../../columns';
+// import { PowerListTypes } from '../../columns';
 import { SearchConfig } from './index';
 
 export interface FormOptionProps {
   searchConfig: SearchConfig;
-  type?: PowerListTypes;
+  // type?: PowerListTypes;
   form: FormInstance;
   submit: () => void;
   collapse: boolean;
@@ -24,14 +24,14 @@ const FormOption: React.FC<FormOptionProps> = (props) => {
     searchConfig,
     setCollapse,
     collapse,
-    type,
+    // type,
     form,
     submit,
     showCollapseButton,
     onReset = () => {},
   } = props;
-  const isForm = type === 'form';
-  const { searchText, submitText, resetText, collapseRender, optionRender } = searchConfig;
+  // const isForm = type === 'form';
+  const { searchText, resetText, collapseRender, optionRender } = searchConfig;
   if (optionRender === false) {
     return null;
   }
@@ -44,17 +44,15 @@ const FormOption: React.FC<FormOptionProps> = (props) => {
         onClick={() => {
           form.resetFields();
           onReset();
-          if (!isForm) {
-            submit();
-          }
+          submit();
         }}
       >
         {resetText}
       </Button>{' '}
       <Button type="primary" htmlType="submit" onClick={() => submit()}>
-        {isForm ? submitText : searchText}
+        {searchText}
       </Button>
-      {!isForm && showCollapseButton && (
+      {showCollapseButton && (
         <a
           onClick={() => {
             setCollapse(!collapse);

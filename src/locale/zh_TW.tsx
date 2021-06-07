@@ -3,6 +3,7 @@ export default {
   tableForm: {
     search: '查詢',
     reset: '重置',
+    edit: '编辑',
     submit: '提交',
     collapsed: '展開',
     expand: '收起',

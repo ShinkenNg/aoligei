@@ -25,13 +25,13 @@ export type ValueEnumMap = Map<ReactText,
   | ReactNode>;
 
 // table 支持的变形，还未完全支持完毕
-export type PowerListTypes = 'form' | 'list' | 'table' | 'cardList' | undefined;
+// export type PowerListTypes = 'form' | 'list' | 'table' | 'cardList' | undefined;
 
 export interface PowerColumnType<T = unknown>
   extends Omit<ColumnType<T>, 'render' | 'children' | 'title'>,
     Partial<Omit<FormItemProps, 'children'>> {
   index?: number;
-  title?: ReactNode | ((config: PowerColumnType<T>, type: PowerListTypes) => ReactNode);
+  title?: ReactNode | ((config: PowerColumnType<T>) => ReactNode);
   /**
    * 自定义 render
    */
@@ -55,13 +55,13 @@ export interface PowerColumnType<T = unknown>
   /**
    * 自定义搜索 form 的输入
    */
-  renderFormItem?: (
+  renderSearchFormItem?: (
     item: PowerColumns<T>,
     config: {
       value?: any;
       onChange?: (value: any) => void;
       onSelect?: (value: any) => void;
-      type: PowerListTypes;
+      // type: PowerListTypes;
       defaultRender: (newItem: PowerColumns<any>) => JSX.Element | null;
     },
     form: Omit<FormInstance, 'scrollToField' | '__INTERNAL__'>,
@@ -134,42 +134,42 @@ export type SelectEnumObj = {
   [value: string]: any;
 };
 
+export type BuildFormValueType =
+  | 'money'
+  | 'textarea'
+  | 'option'
+  | 'radio'
+  | 'date'
+  | 'dateRange'
+  | 'dateTimeRange'
+  | 'dateTime'
+  | 'time'
+  | 'text'
+  | 'index'
+  | 'indexBorder'
+  | 'progress'
+  | 'percent'
+  | 'digit'
+  | 'avatar'
+  | 'code'
+  | 'searchInput'
+  | 'password'
+  | 'richText'
+  | 'upload'
+  | 'sku'
+  | 'rate'
+  | 'powerText';
+
 export interface BuildFormColumns<T> extends Omit<PowerColumns<T>, 'extra'> {
   // 控制item是否显示，但仍然提交
-  buildFormHideItem?: ((form: FormInstance) => boolean) | boolean;
+  buildFormHideItem?: ((form: FormInstance, lock?: boolean) => boolean) | boolean;
   // 控制item是否渲染，和上面那个配合，两者区别，如同创建 更新表单的区别
-  buildFormIsRenderItem?: ((form: FormInstance) => boolean) | boolean;
+  buildFormIsRenderItem?: ((form: FormInstance, lock?: boolean) => boolean) | boolean;
   // 控制item的额外属性, 需要注意的是，这些props你应该从ant design或对应的组件库中查找
-  buildFormItemExtraProps?: {
-    [prop: string]: any;
-  };
+  buildFormItemExtraProps?: any;
   // 控制item的组件类型, 可拓展, 此处独立区别于pro layout的valueType，有助于彻底剥离form
   // powerText用于表单的不可修改项(非disable,而是纯文本展示)
-  buildFormValueType?:
-    | 'money'
-    | 'textarea'
-    | 'option'
-    | 'radio'
-    | 'date'
-    | 'dateRange'
-    | 'dateTimeRange'
-    | 'dateTime'
-    | 'time'
-    | 'text'
-    | 'index'
-    | 'indexBorder'
-    | 'progress'
-    | 'percent'
-    | 'digit'
-    | 'avatar'
-    | 'code'
-    | 'searchInput'
-    | 'password'
-    | 'richText'
-    | 'upload'
-    | 'sku'
-    | 'rate'
-    | 'powerText';
+  buildFormValueType?: BuildFormValueType;
 
   // selectEnum?: SelectEnumObj;
   // 表单过滤值

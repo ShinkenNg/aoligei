@@ -43,6 +43,8 @@ export interface SearchInputProps extends SelectProps<any> {
   };
   onDeselect?: (value?: any) => void;
   mode?: 'multiple' | 'tags';
+  // 与exclude不同,此属性直接排除对应value值
+  excludeValue?: any;
 }
 
 export function SearchInput(props: SearchInputProps) {
@@ -60,6 +62,7 @@ export function SearchInput(props: SearchInputProps) {
     include,
     onFocus,
     initLoad,
+    excludeValue,
     ...rest
   } = props;
 
@@ -138,7 +141,7 @@ export function SearchInput(props: SearchInputProps) {
       return (
         <Select.Option
           key={`${_.get(props, 'id')}_${_.get(item, valuePath)}`}
-          value={_.get(item, valuePath) || props.value}
+          value={_.toString(_.get(item, valuePath) || props.value)}
         >
           {_.get(item, labelPath)}
         </Select.Option>
@@ -176,23 +179,22 @@ export function SearchInput(props: SearchInputProps) {
           if (_.isArray(value)) {
             // 对数组的特殊处理
             const records: any[] = [];
-  ;
             _.forEach(value, (item) => {
-              const match = {};
-              _.set(match, props.valueKey || 'id', item);
-              const recordTmp = _.find(optionData, match);
+              const recordTmp = _.find(optionData, (data) => {
+                return _.toString(_.get(data, props.valueKey || 'id')) === _.toString(item);
+              });
               records.push(recordTmp);
             });
             props.onChange(value, records);
           } else {
-            const match = {};
-            _.set(match, props.valueKey || 'id', value);
-            const record = _.find(optionData, match);
+            const record = _.find(optionData, (data) => {
+              return _.toString(_.get(data, props.valueKey || 'id')) === _.toString(value);
+            });
             props.onChange(value, record);
           }
         }
       }}
-      value={props.value}
+      value={props.mode === 'multiple' ? _.map(_.toArray(props.value), item => _.toString(item)) : _.toString(props.value)}
       id={props.id}
       onDeselect={props.onDeselect}
       placeholder={placeholder}

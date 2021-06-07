@@ -3,6 +3,8 @@ export default {
   tableForm: {
     search: '検索',
     reset: 'リセット',
+    edit: 'Edit',
+    view: 'View',
     submit: '提交',
     collapsed: '展開',
     expand: '収納',

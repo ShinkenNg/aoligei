@@ -14,13 +14,9 @@ export default {
     null,
     {},
   ],
+  esbuild: {},
   hash: true,
   dynamicImport: {
     loading: '@ant-design/pro-skeleton',
-  },
-  plugins: [
-    new webpack.ProvidePlugin({
-      'window.Quill': 'quill',
-    })
-  ]
+  }
 };
