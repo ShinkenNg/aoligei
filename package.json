@@ -1,6 +1,6 @@
 {
   "name": "aoligei",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "🏆 奥力给!",
   "repository": "https://github.com/ShinkenNg/aoligei",
   "homepage": "https://github.com/ShinkenNg/aoligei",
@@ -44,7 +44,7 @@
     "@ssumo/quill-resize-module": "^1.0.0",
     "@tinymce/tinymce-react": "^3.10.2",
     "@umijs/plugin-esbuild": "^1.3.1",
-    "antd": "^4.6.2",
+    "antd": "^4.16.2",
     "classnames": "^2.2.6",
     "dnd-core": "^10.0.2",
     "lodash": "^4.17.15",

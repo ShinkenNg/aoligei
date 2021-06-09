@@ -180,14 +180,14 @@ export function SearchInput(props: SearchInputProps) {
             // 对数组的特殊处理
             const records: any[] = [];
             _.forEach(value, (item) => {
-              const recordTmp = _.find(optionData, (data) => {
+              const recordTmp = _.find(newOptionData, (data) => {
                 return _.toString(_.get(data, props.valueKey || 'id')) === _.toString(item);
               });
               records.push(recordTmp);
             });
             props.onChange(value, records);
           } else {
-            const record = _.find(optionData, (data) => {
+            const record = _.find(newOptionData, (data) => {
               return _.toString(_.get(data, props.valueKey || 'id')) === _.toString(value);
             });
             props.onChange(value, record);
